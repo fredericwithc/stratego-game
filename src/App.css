@@ -397,12 +397,15 @@ hr {
     width: 100%;
     height: auto;
     background-image: url(../images/Board_map.png);
-    background-size: cover;
-    background-position: center;
+    background-size: 100% 100%;
+    background-position: 0 0;
+    background-attachment: local;
     background-repeat: no-repeat;
     touch-action: none;
     /* crucial no mobile */
     -webkit-user-select: none;
+    image-rendering: -webkit-optimize-contrast;
+    /* melhora rendering no iOS */
     user-select: none;
 }
 
@@ -410,7 +413,9 @@ hr {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 0.5px solid #948979;
+    box-sizing: border-box;
+    /* garante dimensões exatas */
+    /* border: 0.5px solid #948979; */
     transition: all 0.15s ease;
     position: relative;
     font-weight: bold;
@@ -425,8 +430,6 @@ hr {
     border-color: #5d6d7e;
 }
 
-
-
 .cell.selected {
     position: relative;
     z-index: 10;
@@ -436,7 +439,7 @@ hr {
 
 /* Lagos/Água */
 .cell.water {
-    border: 1px solid #1f4e79;
+    /* border: 1px solid #1f4e79; */
     position: relative;
     font-size: 8px;
 }
