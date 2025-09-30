@@ -136,6 +136,9 @@ function App() {
   // ESTADO: Onde estão as peças no tabuleiro
   const [tabuleiro, setTabuleiro] = useState({});
 
+  // ESTADO: estado auxiliar
+  const [touchState, setTouchState] = useState({ x: 0, y: 0, moved: false });
+
   // Converte '2' -> 2, mantém número como número
   const rankNum = (n) => (typeof n === 'number' ? n : Number(n));
 
@@ -230,15 +233,31 @@ function App() {
 
   // FUNÇÃO: Colocar peça durante configuração
   const colocarPecaConfiguracao = (posicao) => {
+    console.log('=== COLOCAR PEÇA ===');
+    console.log('pecaSelecionadaConfig:', pecaSelecionadaConfig);
+    console.log('draggedPiece:', draggedPiece);
+    console.log('posicao:', posicao);
+    console.log('tabuleiro[posicao]:', tabuleiro[posicao]);
+
     if (!pecaSelecionadaConfig && !draggedPiece) return;
     const pecaParaColocar = draggedPiece || pecaSelecionadaConfig;
+
+    console.log('pecaParaColocar:', pecaParaColocar);
 
     // Verificar se é território correto
     const linha = posicao[0];
     const territorioValido = (jogadorAtual === "Vermelho" && linha >= 'A' && linha <= 'D') ||
       (jogadorAtual === "Azul" && linha >= 'G' && linha <= 'J');
 
-    if (!territorioValido || tabuleiro[posicao]) return;
+    console.log('territorioValido:', territorioValido);
+    console.log('tabuleiro[posicao] existe?:', !!tabuleiro[posicao]);
+
+    if (!territorioValido || tabuleiro[posicao]) {
+      console.log('❌ VALIDAÇÃO FALHOU - não vai colocar');
+      return;
+    }
+
+    console.log('✅ VAI COLOCAR A PEÇA');
 
     // Colocar peça
     const simbolo = pecaParaColocar === 'bomba' ? <FontAwesomeIcon icon={faBomb} className="bomb-icon" /> :
@@ -258,28 +277,18 @@ function App() {
       setPecaSelecionadaConfig(null);
     }
 
-
-    // Verificar se jogador terminou de colocar todas as peças
-    const pecasRestantes = Object.values(novasPecas[jogadorAtual]).reduce((total, qtd) => total + qtd, 0);
-
-    if (pecasRestantes === 0) {
-      if (jogadorAtual === "Vermelho") {
-        // Jogador Vermelho terminou, passar para jogador Azul
-        setJogadorAtual("Azul");
-        setMensagem('Jogador Vermelho terminou! Agora é a vez do Jogador Azul configurar.');
-      } else {
-        // Jogador Azul terminou, iniciar jogo
-        setFaseJogo('jogando');
-        setJogadorAtual("Vermelho"); // Jogador Vermelho sempre começa
-        setMensagem('Configuração completa! Jogo iniciado.');
-      }
-    }
-
     // Limpar estados de drag and drop
-    if (draggedPiece) {
-      setDraggedPiece(null);
-      setIsDragging(false);
-    }
+    setDraggedPiece(null);
+    setIsDragging(false);
+    setDragSourcePosition(null);
+    setTouchDragData(null);
+    try {
+      if (ghostElement) {
+        document.body.removeChild(ghostElement);
+      }
+    } catch { }
+    setGhostElement(null);
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('dragging-over'));
   };
 
   // FUNÇÃO: Mover peça dentro do tabuleiro durante configuração
@@ -500,24 +509,35 @@ function App() {
     if (faseJogo === 'configuracao') {
       const pecaNaPosicao = tabuleiro[posicao];
 
-      // Se tem uma peça selecionada no tabuleiro para mover
+      // PRIORIDADE 1: Se tem uma peça selecionada no tabuleiro para mover
       if (pecaSelecionadaNoTabuleiro) {
+        // Se clicou na mesma peça, desseleciona
+        if (pecaSelecionadaNoTabuleiro === posicao) {
+          setPecaSelecionadaNoTabuleiro(null);
+          return;
+        }
+
+        // Se clicou em outra célula, move/troca a peça
         moverPecaNoTabuleiro(pecaSelecionadaNoTabuleiro, posicao);
         setPecaSelecionadaNoTabuleiro(null);
+        return;
       }
-      // Se clicou em uma peça própria, selecionar para mover
-      else if (pecaNaPosicao && pecaNaPosicao.jogador === jogadorAtual) {
-        setPecaSelecionadaNoTabuleiro(posicao);
-      }
-      // Se não tem peça selecionada e clicou em célula vazia, colocar nova peça
-      else {
-        colocarPecaConfiguracao(posicao);
-      }
-      return;
-    }
 
-    if (jogoTerminado) {
-      setMensagem('Jogo já terminou!');
+      // PRIORIDADE 2: Se clicou em uma peça própria, selecionar para mover
+      if (pecaNaPosicao && pecaNaPosicao.jogador === jogadorAtual) {
+        setPecaSelecionadaNoTabuleiro(posicao);
+        return;
+      }
+
+      // PRIORIDADE 3: Se tem peça selecionada na lista, colocar nova peça em célula VAZIA
+      if (pecaSelecionadaConfig && !pecaNaPosicao) {
+        colocarPecaConfiguracao(posicao);
+        return;
+      }
+
+      // PRIORIDADE 4: Se clicou numa célula vazia sem nada selecionado, não faz nada
+      // (este bloco pode ficar vazio, mas garante que não trava)
+
       return;
     }
 
@@ -2472,75 +2492,78 @@ function App() {
                       onClick={() => {
                         setPecaSelecionadaConfig(tipo);
                       }}
-                      onDragStart={(e) => {
-                        if (faseJogo === 'configuracao' && quantidade > 0) {
-                          setDraggedPiece(tipo);
-                          e.dataTransfer.effectAllowed = 'move';
-                        } else {
-                          e.preventDefault();
-                        }
-                      }}
-                      onDragEnd={() => {
-                        setDraggedPiece(null);
-                        setIsDragging(false);
-                      }}
-                      onTouchStart={(e) => {
-                        // Só ativar drag se realmente mover o dedo
-                        setTouchDragData({
-                          piece: tipo,
-                          startX: e.touches[0].clientX,
-                          startY: e.touches[0].clientY,
-                          moved: false
-                        });
-                      }}
-                      onTouchMove={(e) => {
-                        if (touchDragData && !touchDragData.moved) {
-                          e.preventDefault();
-                          // Primeira vez movendo - criar ghost
-                          setDraggedPiece(tipo);
-                          setIsDragging(true);
 
-                          const ghost = document.createElement('div');
-                          ghost.className = 'drag-ghost';
-                          ghost.textContent = display;
-                          ghost.style.left = e.touches[0].clientX + 'px';
-                          ghost.style.top = e.touches[0].clientY + 'px';
-                          document.body.appendChild(ghost);
-                          setGhostElement(ghost);
+                      // ==== DESATIVADO: SISTEMA DE DRAG AND DROP ======
 
-                          setTouchDragData({ ...touchDragData, moved: true });
-                        } else if (touchDragData && ghostElement) {
-                          e.preventDefault();
-                          ghostElement.style.left = e.touches[0].clientX + 'px';
-                          ghostElement.style.top = e.touches[0].clientY + 'px';
-                        }
-                      }}
-                      onTouchEnd={(e) => {
-                        if (touchDragData) {
-                          if (touchDragData.moved) {
-                            // Foi um drag - executar drop
-                            e.preventDefault();
-                            const touch = e.changedTouches[0];
-                            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                            const cell = elementBelow?.closest('.cell[data-pos]');
+                      // onDragStart={(e) => {
+                      //   if (faseJogo === 'configuracao' && quantidade > 0) {
+                      //     setDraggedPiece(tipo);
+                      //     e.dataTransfer.effectAllowed = 'move';
+                      //   } else {
+                      //     e.preventDefault();
+                      //   }
+                      // }}
+                      // onDragEnd={() => {
+                      //   setDraggedPiece(null);
+                      //   setIsDragging(false);
+                      // }}    
+                      // onTouchStart={(e) => {
+                      //   // Só ativar drag se realmente mover o dedo
+                      //   setTouchDragData({
+                      //     piece: tipo,
+                      //     startX: e.touches[0].clientX,
+                      //     startY: e.touches[0].clientY,
+                      //     moved: false
+                      //   });
+                      // }}
+                      // onTouchMove={(e) => {
+                      //   if (touchDragData && !touchDragData.moved) {
+                      //     e.preventDefault();
+                      //     // Primeira vez movendo - criar ghost
+                      //     setDraggedPiece(tipo);
+                      //     setIsDragging(true);
 
-                            if (cell) {
-                              const posicao = cell.getAttribute('data-pos');
-                              colocarPecaConfiguracao(posicao);
-                            }
+                      //     const ghost = document.createElement('div');
+                      //     ghost.className = 'drag-ghost';
+                      //     ghost.textContent = display;
+                      //     ghost.style.left = e.touches[0].clientX + 'px';
+                      //     ghost.style.top = e.touches[0].clientY + 'px';
+                      //     document.body.appendChild(ghost);
+                      //     setGhostElement(ghost);
 
-                            setDraggedPiece(null);
-                            setIsDragging(false);
-                            // Remover elemento fantasma
-                            if (ghostElement) {
-                              document.body.removeChild(ghostElement);
-                              setGhostElement(null);
-                            }
-                          }
-                          // Se não moveu, deixar o onClick executar normalmente
-                          setTouchDragData(null);
-                        }
-                      }}
+                      //     setTouchDragData({ ...touchDragData, moved: true });
+                      //   } else if (touchDragData && ghostElement) {
+                      //     e.preventDefault();
+                      //     ghostElement.style.left = e.touches[0].clientX + 'px';
+                      //     ghostElement.style.top = e.touches[0].clientY + 'px';
+                      //   }
+                      // }}
+                      // onTouchEnd={(e) => {
+                      //   if (touchDragData) {
+                      //     if (touchDragData.moved) {
+                      //       // Foi um drag - executar drop
+                      //       e.preventDefault();
+                      //       const touch = e.changedTouches[0];
+                      //       const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                      //       const cell = elementBelow?.closest('.cell[data-pos]');
+
+                      //       if (cell) {
+                      //         const posicao = cell.getAttribute('data-pos');
+                      //         colocarPecaConfiguracao(posicao);
+                      //       }
+
+                      //       setDraggedPiece(null);
+                      //       setIsDragging(false);
+                      //       // Remover elemento fantasma
+                      //       if (ghostElement) {
+                      //         document.body.removeChild(ghostElement);
+                      //         setGhostElement(null);
+                      //       }
+                      //     }
+                      //     // Se não moveu, deixar o onClick executar normalmente
+                      //     setTouchDragData(null);
+                      //   }
+                      // }}
                       className={`piece-button player${jogadorAtual} ${pecaSelecionadaConfig === tipo ? 'selected' : ''}`}
                       style={{ cursor: quantidade > 0 ? 'grab' : 'not-allowed' }}
                     >
@@ -2595,12 +2618,12 @@ function App() {
                         </div>
                       ) : pecaSelecionadaConfig === 9 ? (
                         <div className="piece-layout-2">
-                          <img src={`${process.env.PUBLIC_URL}/images/patente-9.png`} alt="patente 9" className="patentes-image"/>
+                          <img src={`${process.env.PUBLIC_URL}/images/patente-9.png`} alt="patente 9" className="patentes-image" />
                           <span className="number-corner">9</span>
                         </div>
                       ) : pecaSelecionadaConfig === 10 ? (
                         <div className="piece-layout-2">
-                          <img src={`${process.env.PUBLIC_URL}/images/marechal-10.png`} alt="patente 10" className="patentes-image patent-10"/>
+                          <img src={`${process.env.PUBLIC_URL}/images/marechal-10.png`} alt="patente 10" className="patentes-image patent-10" />
                           <span className="number-corner">10</span>
                         </div>
                       ) : pecaSelecionadaConfig}
@@ -2624,20 +2647,26 @@ function App() {
                     return;
                   }
 
+                  // Jogador confirmou que está pronto
                   if (jogadorAtual === "Vermelho") {
                     setJogadorAtual("Azul");
-                    setMensagem('Passando para Jogador Azul...');
+                    setPecaSelecionadaConfig(null); // Limpa seleção
+                    setMensagem('Jogador Vermelho pronto! Agora é a vez do Jogador Azul configurar suas peças.');
                   } else {
+                    // Jogador Azul também está pronto - iniciar jogo
                     setFaseJogo('jogando');
-                    setJogadorAtual("Vermelho");
-                    setMensagem('Jogo iniciado!');
+                    setJogadorAtual("Vermelho"); // Vermelho sempre começa
+                    setPecaSelecionadaConfig(null);
+                    setMensagem('Configuração completa! Que comece a batalha!');
                   }
                 }}
                 className={`finish-button ${!validarConfiguracaoCompleta(jogadorAtual) ? 'disabled' : ''}`}
                 disabled={!validarConfiguracaoCompleta(jogadorAtual)}
               >
-                {jogadorAtual === "Vermelho" ? 'Finalizar Jogador Vermelho' : 'Iniciar Jogo'}
-                {!validarConfiguracaoCompleta(jogadorAtual) && ` (${contarPecasRestantes(jogadorAtual)} restantes)`}
+                {validarConfiguracaoCompleta(jogadorAtual)
+                  ? (jogadorAtual === "Vermelho" ? 'Pronto! Passar para Azul' : 'Pronto! Iniciar Jogo')
+                  : `Faltam ${contarPecasRestantes(jogadorAtual)} peças`
+                }
               </button>
             </div>
           </div>
@@ -2689,135 +2718,137 @@ function App() {
                   id="gameBoard"
                   onClick={animandoMovimento ? (e) => e.preventDefault() : undefined}
                   style={{ pointerEvents: animandoMovimento ? 'none' : 'auto' }}
-                  onDragStart={(e) => {
-                    if (faseJogo === 'configuracao' && draggedPiece) {
-                      e.dataTransfer.effectAllowed = 'move';
-                    } else if (faseJogo === 'jogando' && !animandoMovimento) {
-                      const cell = e.target.closest('.cell[data-pos]');
-                      if (cell && cell.getAttribute('draggable') === 'true') {
-                        const posicao = cell.getAttribute('data-pos');
-                        const peca = tabuleiro[posicao];
 
-                        setDraggedPiece(peca.numero);
-                        setDragSourcePosition(posicao);
-                        setIsDragging(true);
+                // ==== DESATIVADO: SISTEMA DE DRAG AND DROP ======
 
-                        const movimentosValidos = calcularMovimentosValidos(posicao);
-                        setMovimentosValidos(movimentosValidos);
+                // onDragStart={(e) => {
+                //   if (faseJogo === 'configuracao' && draggedPiece) {
+                //     e.dataTransfer.effectAllowed = 'move';
+                //   } else if (faseJogo === 'jogando' && !animandoMovimento) {
+                //     const cell = e.target.closest('.cell[data-pos]');
+                //     if (cell && cell.getAttribute('draggable') === 'true') {
+                //       const posicao = cell.getAttribute('data-pos');
+                //       const peca = tabuleiro[posicao];
 
-                        e.dataTransfer.effectAllowed = 'move';
-                      } else {
-                        e.preventDefault();
-                      }
-                    } else {
-                      e.preventDefault();
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    if ((faseJogo === 'configuracao' && draggedPiece) ||
-                      (faseJogo === 'jogando' && draggedPiece && dragSourcePosition)) {
-                      e.preventDefault();
-                      // Adicionar classe visual na célula sendo "hovered"
-                      const cell = e.target.closest('.cell');
-                      if (cell) {
-                        cell.classList.add('dragging-over');
-                      }
-                    }
-                  }}
-                  onDragLeave={(e) => {
-                    // Remover classe visual
-                    const cell = e.target.closest('.cell');
-                    if (cell) {
-                      cell.classList.remove('dragging-over');
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const cell = e.target.closest('.cell');
-                    if (!cell) return;
+                //       setDraggedPiece(peca.numero);
+                //       setDragSourcePosition(posicao);
+                //       setIsDragging(true);
 
-                    const posicao = cell.getAttribute('data-pos');
+                //       const movimentosValidos = calcularMovimentosValidos(posicao);
+                //       setMovimentosValidos(movimentosValidos);
 
-                    if (faseJogo === 'configuracao' && draggedPiece) {
-                      colocarPecaConfiguracao(posicao);
-                      setDraggedPiece(null);
-                      setIsDragging(false);
-                      cell.classList.remove('dragging-over');
-                    } else if (faseJogo === 'jogando' && draggedPiece && dragSourcePosition) {
-                      handleDrop(posicao);
-                      cell.classList.remove('dragging-over');
-                    }
-                  }}
-                  onTouchStart={(e) => {
-                    // Para configuração: ativa drag quando toca em célula vazia
-                    if (faseJogo === 'configuracao' && pecaSelecionadaConfig) {
-                      const cell = e.target.closest('.cell[data-pos]');
-                      if (cell) {
-                        const pos = cell.getAttribute('data-pos');
-                        if (!tabuleiro[pos]) { // só em célula vazia
-                          e.preventDefault();
-                          setDraggedPiece(pecaSelecionadaConfig);
-                          setIsDragging(true);
-                        }
-                      }
-                    }
+                //       e.dataTransfer.effectAllowed = 'move';
+                //     } else {
+                //       e.preventDefault();
+                //     }
+                //   } else {
+                //     e.preventDefault();
+                //   }
+                // }}
+                // onDragOver={(e) => {
+                //   if ((faseJogo === 'configuracao' && draggedPiece) ||
+                //     (faseJogo === 'jogando' && draggedPiece && dragSourcePosition)) {
+                //     e.preventDefault();
+                //     // Adicionar classe visual na célula sendo "hovered"
+                //     const cell = e.target.closest('.cell');
+                //     if (cell) {
+                //       cell.classList.add('dragging-over');
+                //     }
+                //   }
+                // }}
+                // onDragLeave={(e) => {
+                //   // Remover classe visual
+                //   const cell = e.target.closest('.cell');
+                //   if (cell) {
+                //     cell.classList.remove('dragging-over');
+                //   }
+                // }}
+                // onDrop={(e) => {
+                //   e.preventDefault();
+                //   const cell = e.target.closest('.cell');
+                //   if (!cell) return;
 
-                    // Para jogo: ativa drag quando toca em peça própria
-                    if (faseJogo === 'jogando' && !animandoMovimento) {
-                      const cell = e.target.closest('.cell[data-pos]');
-                      if (cell) {
-                        const pos = cell.getAttribute('data-pos');
-                        const peca = tabuleiro[pos];
-                        if (peca && peca.jogador === jogadorAtual && !pecaImovel(peca.numero)) {
-                          e.preventDefault();
-                          setDraggedPiece(peca.numero);
-                          setDragSourcePosition(pos);
-                          setIsDragging(true);
-                          setMovimentosValidos(calcularMovimentosValidos(pos));
-                        }
-                      }
-                    }
-                  }}
+                //   const posicao = cell.getAttribute('data-pos');
 
-                  onTouchMove={(e) => {
-                    if (isDragging) {
-                      e.preventDefault();
-                      const touch = e.touches[0];
-                      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                      const cell = elementBelow?.closest('.cell');
+                //   if (faseJogo === 'configuracao' && draggedPiece) {
+                //     colocarPecaConfiguracao(posicao);
+                //     setDraggedPiece(null);
+                //     setIsDragging(false);
+                //     cell.classList.remove('dragging-over');
+                //   } else if (faseJogo === 'jogando' && draggedPiece && dragSourcePosition) {
+                //     handleDrop(posicao);
+                //     cell.classList.remove('dragging-over');
+                //   }
+                // }}
+                // onTouchStart={(e) => {
+                //   // Para configuração: ativa drag quando toca em célula vazia
+                //   if (faseJogo === 'configuracao' && pecaSelecionadaConfig) {
+                //     const cell = e.target.closest('.cell[data-pos]');
+                //     if (cell) {
+                //       const pos = cell.getAttribute('data-pos');
+                //       if (!tabuleiro[pos]) { // só em célula vazia
+                //         e.preventDefault();
+                //         setDraggedPiece(pecaSelecionadaConfig);
+                //         setIsDragging(true);
+                //       }
+                //     }
+                //   }
 
-                      // Visual feedback
-                      document.querySelectorAll('.cell').forEach(c => c.classList.remove('dragging-over'));
-                      if (cell) cell.classList.add('dragging-over');
-                    }
-                  }}
+                //   // Para jogo: ativa drag quando toca em peça própria
+                //   if (faseJogo === 'jogando' && !animandoMovimento) {
+                //     const cell = e.target.closest('.cell[data-pos]');
+                //     if (cell) {
+                //       const pos = cell.getAttribute('data-pos');
+                //       const peca = tabuleiro[pos];
+                //       if (peca && peca.jogador === jogadorAtual && !pecaImovel(peca.numero)) {
+                //         e.preventDefault();
+                //         setDraggedPiece(peca.numero);
+                //         setDragSourcePosition(pos);
+                //         setIsDragging(true);
+                //         setMovimentosValidos(calcularMovimentosValidos(pos));
+                //       }
+                //     }
+                //   }
+                // }}
 
-                  onTouchEnd={(e) => {
-                    if (isDragging) {
-                      e.preventDefault();
-                      const touch = e.changedTouches[0];
-                      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                      const cell = elementBelow?.closest('.cell[data-pos]');
+                // onTouchMove={(e) => {
+                //   if (isDragging) {
+                //     e.preventDefault();
+                //     const touch = e.touches[0];
+                //     const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                //     const cell = elementBelow?.closest('.cell');
 
-                      if (cell) {
-                        const posicao = cell.getAttribute('data-pos');
+                //     // Visual feedback
+                //     document.querySelectorAll('.cell').forEach(c => c.classList.remove('dragging-over'));
+                //     if (cell) cell.classList.add('dragging-over');
+                //   }
+                // }}
 
-                        if (faseJogo === 'configuracao') {
-                          colocarPecaConfiguracao(posicao);
-                        } else if (faseJogo === 'jogando' && dragSourcePosition) {
-                          handleDrop(posicao);
-                        }
-                      }
+                // onTouchEnd={(e) => {
+                //   if (isDragging) {
+                //     e.preventDefault();
+                //     const touch = e.changedTouches[0];
+                //     const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                //     const cell = elementBelow?.closest('.cell[data-pos]');
 
-                      // Limpar estados
-                      setDraggedPiece(null);
-                      setDragSourcePosition(null);
-                      setIsDragging(false);
-                      setMovimentosValidos([]);
-                      document.querySelectorAll('.cell').forEach(c => c.classList.remove('dragging-over'));
-                    }
-                  }}
+                //     if (cell) {
+                //       const posicao = cell.getAttribute('data-pos');
 
+                //       if (faseJogo === 'configuracao') {
+                //         colocarPecaConfiguracao(posicao);
+                //       } else if (faseJogo === 'jogando' && dragSourcePosition) {
+                //         handleDrop(posicao);
+                //       }
+                //     }
+
+                //     // Limpar estados
+                //     setDraggedPiece(null);
+                //     setDragSourcePosition(null);
+                //     setIsDragging(false);
+                //     setMovimentosValidos([]);
+                //     document.querySelectorAll('.cell').forEach(c => c.classList.remove('dragging-over'));
+                //   }
+                // }}
                 >
 
                   {/* Linha A (0) - Território Jogador Vermelho */}
