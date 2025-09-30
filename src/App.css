@@ -428,6 +428,7 @@ hr {
     aspect-ratio: 1;
     border-radius: 1px;
     color: #DFD0B8;
+    border: 3px solid transparent;
 
     -webkit-touch-callout: none;
     -webkit-user-select: none;
@@ -1051,7 +1052,6 @@ hr {
 
     .board-container {
         padding: 2px;
-        /* menos moldura */
         border-width: 1px;
         border-radius: 6px;
     }
@@ -1070,7 +1070,6 @@ hr {
         gap: 1px;
     }
 
-    /* Coordenadas (A-J / 0-9) menores */
     .coordinates {
         font-size: 3px;
         margin-bottom: 2px;
@@ -1086,7 +1085,6 @@ hr {
         padding: 0 6px;
     }
 
-    /* CÉLULAS + peças menores */
     .cell {
         border-width: 0.5px;
         font-size: 6px;
