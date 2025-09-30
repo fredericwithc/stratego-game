@@ -818,8 +818,10 @@ function App() {
       return {
         ...baseSelecionada,
         background: corFundo,
-        border: '3px solid #DFD0B8',
-        boxShadow: '0 0 10px #DFD0B8'
+        outline: '3px solid #DFD0B8',
+        outlineOffset: '-3px',
+        boxShadow: '0 0 10px #DFD0B8',
+        zIndex: 10
       };
     }
 
