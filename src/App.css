@@ -1488,9 +1488,9 @@ hr {
 
 /* Otimizações para dispositivos touch */
 @media (hover: none) and (pointer: coarse) {
-    .cell {
+    /* .cell {
         border-width: 1px;
-    }
+    } */
 
     /* .cell:active {
         transform: scale(0.85);
