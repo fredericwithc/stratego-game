@@ -64,6 +64,15 @@ body {
     /* ocupa espaço e empurra o resto pra direita */
 }
 
+.nav-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #DFD0B8;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
 .nav-right {
     display: flex;
     align-items: center;
@@ -207,16 +216,21 @@ body {
 /* MODO INDICADOR */
 .modo-indicador {
     position: fixed;
-    bottom: 20px;
+    top: 14px;
+    /* ✅ mudou de bottom para top */
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(57, 62, 70, 0.9);
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid #948979;
+    background: transparent;
+    /* ✅ removeu fundo */
+    padding: 0;
+    /* ✅ removeu padding */
+    border-radius: 0;
+    border: none;
+    /* ✅ removeu borda */
     color: #DFD0B8;
-    font-size: 12px;
-    z-index: 50;
+    font-size: 14px;
+    z-index: 60;
+    /* ✅ aumentou para ficar acima da navbar */
     white-space: nowrap;
 }
 
@@ -1384,6 +1398,10 @@ hr {
 /* iPhone 12 Pro em portrait (largura até 390px) */
 @media (max-width: 390px) and (orientation: portrait) {
 
+    body {
+        padding: 2px !important;
+    }
+
     /* Navbar */
     .navbar {
         padding: 6px 12px !important;
@@ -1426,6 +1444,11 @@ hr {
         display: none;
     }
 
+    .main-content {
+        margin: 5px 0 !important;
+        gap: 3px !important;
+    }
+
     .piece-button {
         width: 50px !important;
         height: 35px !important;
@@ -1439,6 +1462,11 @@ hr {
         /* 40% da altura do viewport */
         overflow-y: auto;
         flex-wrap: wrap;
+    }
+
+    /* Coroa */
+    .piece-back {
+        font-size: 12px !important;
     }
 
     /* Textos da configuração */
@@ -1473,6 +1501,22 @@ hr {
     .game-title {
         font-size: 1.1rem !important;
         margin: 5px 0 !important;
+    }
+
+    /* Capturas: limitadas e coladas abaixo do tabuleiro */
+    .capturas-container {
+        max-width: 96vw;
+        margin: 3px auto;
+        /* reduzido de 6px para 3px */
+        padding: 3px;
+        /* reduzido de 6px para 3px */
+    }
+
+    .capturas-titulo {
+        font-size: 0.7em;
+        /* reduzido de 0.95em para 0.7em */
+        margin-bottom: 2px;
+        /* reduzido de 6px para 2px */
     }
 
     /* Indicadores de jogo */

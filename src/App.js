@@ -2219,6 +2219,7 @@ function App() {
         <div className="nav-left">
           <span className="brand">Stratego</span>
         </div>
+
         <div className="nav-right">
           <button className="nav-btn" onClick={abrirRegras}>Regras</button>
           <button className="icon-btn" onClick={handleRestart} aria-label="Reiniciar">
@@ -2246,7 +2247,6 @@ function App() {
         <>
           <div className="modo-indicador">
             Modo: {modoJogo === 'local' ? '2 Jogadores Local' : modoJogo === 'ia' ? 'Contra IA' : 'Online'}
-            {modoJogo === 'ia' && ` - Dificuldade: ${estadoIA.dificuldade}`}
           </div>
 
           {modoJogo === 'ia' && estadoIA.pensando && (
