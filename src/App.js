@@ -786,7 +786,10 @@ function App() {
   const getCellStyle = (posicao) => {
 
     const baseSelecionada = (celulaSelecionada === posicao)
-      ? { border: '3px solid #DFD0B8' }
+      ? {
+        outline: '3px solid #DFD0B8',
+        outlineOffset: '-3px'
+      }
       : {};
 
     if (combateAtivo && pecaRevelada === posicao) {
@@ -853,7 +856,8 @@ function App() {
       return {
         ...baseSelecionada,
         background: corFundo,
-        border: '2px solid #DFD0B8',
+        outline: '2px solid #DFD0B8',
+        outlineOffset: '-2px',
         boxShadow: '0 0 8px rgba(223, 208, 184, 0.6)'
       };
     }
