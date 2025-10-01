@@ -494,11 +494,11 @@ hr {
 }
 
 /* Touch feedback */
-.cell:active {
+/* .cell:active {
     transform: scale(0.9);
     transition: transform 0.1s ease;
     filter: brightness(1.2);
-}
+} */
 
 .config-container {
     text-align: center;
@@ -1492,10 +1492,10 @@ hr {
         border-width: 1px;
     }
 
-    .cell:active {
+    /* .cell:active {
         transform: scale(0.85);
         transition: transform 0.08s ease;
-    }
+    } */
 
     .piece-button {
         touch-action: manipulation;
