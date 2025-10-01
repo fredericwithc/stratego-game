@@ -1485,6 +1485,11 @@ hr {
         height: 14px !important;
     }
 
+    .menu-title {
+        font-size: 1.3em;
+        margin: 30px;
+    }
+
     /* Indicador de modo (se aparecer) */
     .modo-indicador {
         font-size: 0.65rem !important;
@@ -1566,16 +1571,12 @@ hr {
     .capturas-container {
         max-width: 96vw;
         margin: 3px auto;
-        /* reduzido de 6px para 3px */
         padding: 3px;
-        /* reduzido de 6px para 3px */
     }
 
     .capturas-titulo {
         font-size: 0.7em;
-        /* reduzido de 0.95em para 0.7em */
         margin-bottom: 2px;
-        /* reduzido de 6px para 2px */
     }
 
     /* Indicadores de jogo */
@@ -1591,14 +1592,6 @@ hr {
 
 /* Otimizações para dispositivos touch */
 @media (hover: none) and (pointer: coarse) {
-    /* .cell {
-        border-width: 1px;
-    } */
-
-    /* .cell:active {
-        transform: scale(0.85);
-        transition: transform 0.08s ease;
-    } */
 
     .piece-button {
         touch-action: manipulation;
@@ -1630,10 +1623,13 @@ hr {
         padding: 20px 10px;
     }
 
+    .menu-title {
+        font-size: 1.4em;
+        margin: 30px;
+    }
+
     .game-title {
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        margin-bottom: 0;
+        margin-bottom: 10px;
         margin-right: 10px;
         font-size: 1.2em;
     }
