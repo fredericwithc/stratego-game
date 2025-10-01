@@ -395,6 +395,26 @@ function App() {
   // FUNÇÃO: Executar combate
   const executarCombate = (pecaAtacante, pecaDefensora, posicao, novoTabuleiro, origem) => {
 
+    // PRIORIDADE MÁXIMA: Verificar se capturou bandeira
+    const ehBandeira = React.isValidElement(pecaDefensora.numero) &&
+      pecaDefensora.numero.props?.icon === faFlag;
+
+    if (ehBandeira) {
+      setMensagem(`Bandeira capturada! ${pecaAtacante.jogador} venceu!`);
+      registrarCaptura(pecaDefensora, pecaAtacante.jogador);
+      novoTabuleiro[posicao] = pecaAtacante;
+      delete novoTabuleiro[origem];
+      setTabuleiro(novoTabuleiro);
+
+      // Finalizar jogo imediatamente
+      setJogoTerminado(true);
+      setMensagem(`${pecaAtacante.jogador} venceu! Bandeira capturada!`);
+      setCombateAtivo(false);
+      setPecaRevelada(null);
+      setRevealCombate({ origem: null, destino: null });
+      return;
+    }
+
     if (rankNum(pecaAtacante.numero) === 1 && rankNum(pecaDefensora.numero) === 10) {
       // Assassino vence Marechal quando ataca
       setMensagem(`Combate: Assassino vs Marechal - Assassino venceu!`);
@@ -505,6 +525,11 @@ function App() {
 
   // FUNÇÃO: O que acontece quando clica numa célula
   const handleCellClick = (posicao) => {
+
+    // BLOQUEAR se o jogo já terminou
+    if (jogoTerminado) {
+      return;
+    }
 
     if (faseJogo === 'configuracao') {
       const pecaNaPosicao = tabuleiro[posicao];
@@ -2071,7 +2096,8 @@ function App() {
       !movimentoIAEmAndamento &&  // evita movimento duplo
       !animandoMovimento &&       // aguarda animação terminar
       !combateAtivo &&
-      !mostrarTrocaTurno          // BLOQUEIA IA com o pop-up aberto
+      !mostrarTrocaTurno &&  // BLOQUEIA IA com o pop-up aberto
+      !jogoTerminado
     ) {
       movimentoIA();
     }
@@ -2238,9 +2264,11 @@ function App() {
       )}
 
 
-      <h1 className="game-title"><FontAwesomeIcon
-        icon={faWebAwesome} /> STRATEGO <FontAwesomeIcon
-          icon={faWebAwesome} /></h1>
+      {modoJogo === 'menu' && (
+        <h1 className="game-title">
+          <FontAwesomeIcon icon={faWebAwesome} /> STRATEGO <FontAwesomeIcon icon={faWebAwesome} />
+        </h1>
+      )}
 
       {/* INDICADORES DE MODO E IA */}
       {modoJogo !== 'menu' && (
@@ -3065,6 +3093,22 @@ function App() {
                 onClick={() => setMostrarTrocaTurno(false)}
               >
                 Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* POPUP DE VITÓRIA */}
+        {jogoTerminado && (
+          <div className="vitoria-overlay">
+            <div className="vitoria-popup">
+              <h2> Fim de Jogo! </h2>
+              <p>{mensagem}</p>
+              <button
+                className="turno-button"
+                onClick={() => reiniciarJogo()}
+              >
+                Jogar Novamente
               </button>
             </div>
           </div>
