@@ -1159,7 +1159,15 @@ hr {
 
     /* Ícone do verso das peças menor */
     .piece-back {
-        font-size: 12px;
+        font-size: 10px;
+    }
+
+    .cell:has(.piece-back.vermelho) {
+        border: 2px solid #b42a2a !important;
+    }
+
+    .cell:has(.piece-back.azul) {
+        border: 2px solid #2577ad !important;
     }
 
     /* Bombas e bandeiras menores aqui */
@@ -1211,16 +1219,22 @@ hr {
     }
 
     .piece-buttons {
-        flex-direction: column;
-        gap: 2px;
-        max-height: 130px;
+        gap: 4px !important;
+        max-height: 40vh;
+        /* 40% da altura do viewport */
         overflow-y: auto;
+        flex-wrap: wrap;
     }
 
     .piece-button {
-        width: 60px;
-        padding: 5px 2px;
-        font-size: 12px;
+        width: 50px;
+        height: 35px;
+        padding: 3px;
+        font-size: 11px;
+    }
+
+    .number-corner {
+        font-size: 7px;
     }
 
     .selected-piece {
@@ -1644,6 +1658,33 @@ hr {
         max-width: 95vw;
     }
 
+    .piece-selector h3 {
+        font-size: .9em;
+    }
+
+    .config-title {
+        font-size: .9em;
+    }
+
+    .config-description {
+        font-size: .8em;
+    }
+
+    .piece-button {
+        width: 50px !important;
+        height: 35px !important;
+        font-size: 11px !important;
+        padding: 3px !important;
+    }
+
+    .piece-buttons {
+        gap: 3px !important;
+        max-height: 20vh;
+        /* 20% da altura do viewport */
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+
     /* Títulos de captura menores */
     .capturas-titulo {
         font-size: 0.75rem !important;
@@ -1699,7 +1740,7 @@ hr {
 
     .config-title {
         position: absolute;
-        top: var(--nav-h, 20px);
+        top: var(--nav-h, 80px);
         /* logo abaixo da navbar */
         left: 50%;
         transform: translateX(-50%);
@@ -1739,13 +1780,30 @@ hr {
     .board-wrapper {
         margin: 0 auto;
         /* escolhe o menor entre 90% do menor lado da viewport e 720px */
-        width: min(90vmin, 720px);
+        width: min(90vmin, 520px);
     }
 
     /* pequenos ajustes de conforto em tablets/desktop */
     .board-container {
         padding: 12px;
         border-radius: 10px;
+    }
+
+    .piece-buttons {
+        gap: 4px !important;
+        max-height: 40vh;
+        max-width: 90vw;
+        /* 40% da altura do viewport */
+        overflow-y: auto;
+        flex-wrap: wrap;
+        margin: 30px;
+    }
+
+    .piece-button {
+        width: 60px !important;
+        height: 40px !important;
+        font-size: 13px !important;
+        padding: 3px !important;
     }
 
     /* em telas maiores dá pra subir um pouco a legibilidade das peças */
@@ -1756,7 +1814,7 @@ hr {
     /* Aumentar número no canto das peças do tabuleiro */
     .cell .number-corner {
         margin-top: 5px;
-        font-size: 16px;
+        font-size: 12px;
         /* antes estava em 10px */
     }
 
@@ -1764,19 +1822,13 @@ hr {
     .cell .fa-bomb,
     .cell .fa-flag,
     .cell .flag-icon {
-        font-size: 30px;
+        font-size: 23px;
     }
 
     .ia-status {
         top: 80px;
         right: max(20px, calc(50% - 560px));
         /* encosta na borda do container */
-    }
-
-    .modo-indicador {
-        bottom: 5px;
-        left: 50%;
-        transform: translateX(-50%);
     }
 
     /* Esconde o título Stratego quando o jogo já começou */
@@ -1816,7 +1868,7 @@ hr {
     /* MENU MODO DE JOGO */
     .game-title {
         margin-top: 30px;
-        font-size: 2.9rem;
+        font-size: 2.3rem;
     }
 
     /* Esconde o título Stratego quando o jogo já começou */
@@ -1831,7 +1883,7 @@ hr {
     }
 
     .menu-title {
-        font-size: 2.9em;
+        font-size: 2.3em;
         margin-bottom: 40px;
     }
 
@@ -1855,14 +1907,14 @@ hr {
     .menu-button {
         width: 420px;
         padding: 30px 48px;
-        font-size: 2.4em;
+        font-size: 2em;
         border-radius: 12px;
     }
 
     /* TABULEIRO */
     /* aumenta o tabuleiro */
     .board-wrapper {
-        max-width: 90vw;
+        max-width: 80vw;
         max-height: 90vh;
         margin: 0 auto;
     }
@@ -1902,43 +1954,9 @@ hr {
         font-size: 14px;
     }
 
-    /* cada botão de peça */
-    .piece-button {
-        width: 120px;
-        height: 75px;
-        font-size: 18px;
-        padding: 8px;
-    }
-
-    /* imagens de patentes */
-    .piece-button .patentes-image {
-        height: 70px;
-        width: auto;
-    }
-
-    /* aumenta bombas e bandeiras */
-    .fa-bomb,
-    .fa-flag,
-    .flag-icon {
-        font-size: 45px !important;
-    }
-
-    /* número no canto das peças no tabuleiro */
-    .number-corner {
-        font-size: 23px;
-        padding: 5px 8px;
-    }
-
-    /* número no canto dentro dos botões de seleção */
-    .piece-button .number-corner {
-        font-size: 22px;
-        top: -13px;
-        right: 1px;
-    }
-
     /* Coroa peças */
     .piece-back {
-        font-size: 40px;
+        font-size: 30px;
     }
 
     /* Bordas mais grossas para as peças viradas (com coroa) */
@@ -1956,9 +1974,28 @@ hr {
         order: 3;
         /* joga abaixo do tabuleiro */
         width: 100%;
-        display: flex;
+        /* display: flex; */
         justify-content: center;
         font-size: 1.5rem;
+    }
+
+    .piece-selector h3 {
+        margin: 20px;
+    }
+
+    /* cada botão de peça */
+    .piece-button {
+        width: 100px;
+        height: 75px;
+        padding: 8px 12px;
+        font-size: 22px;
+    }
+
+    /* número no canto dentro dos botões de seleção */
+    .piece-button .number-corner {
+        font-size: 20px;
+        top: -13px;
+        right: 1px;
     }
 
     .piece-buttons {
@@ -1967,10 +2004,26 @@ hr {
         gap: 10px;
     }
 
-    .piece-button {
-        padding: 8px 12px;
-        font-size: 22px;
+
+    /* imagens de patentes */
+    .piece-button .patentes-image {
+        height: 60px;
+        width: auto;
     }
+
+    /* aumenta bombas e bandeiras */
+    .fa-bomb,
+    .fa-flag,
+    .flag-icon {
+        font-size: 35px !important;
+    }
+
+    /* número no canto das peças no tabuleiro */
+    .number-corner {
+        font-size: 20px;
+        padding: 5px 8px;
+    }
+
 
     .config-container {
         margin-top: 10px;
