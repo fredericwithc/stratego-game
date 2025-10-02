@@ -9,7 +9,7 @@
 
 body {
     font-family: 'Helvetica', sans-serif;
-    background: linear-gradient(135deg, #222831, #33373f);
+    background: #222831;
     color: #DFD0B8;
     min-height: 100vh;
     display: flex;
@@ -51,6 +51,7 @@ body {
     border-bottom: 2px solid #948979;
     margin-bottom: 8px;
     width: 96%;
+    background: #222831;
 }
 
 .brand {
@@ -2267,6 +2268,11 @@ hr {
 
     .cell {
         font-size: 14px;
+    }
+
+    .piece-button .fa-bomb,
+    .piece-button .fa-flag {
+        font-size: 20px;
     }
 
     /* números/ícones das peças */
