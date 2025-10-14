@@ -1,0 +1,216 @@
+/* ESPAÇO CAPTURA DE PEÇAS */
+.capturas-container {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.capturas-vermelho {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.capturas-azul {
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.capturas-titulo {
+    text-align: center;
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.capturas-titulo.vermelho {
+    color: #e74c3c;
+}
+
+.capturas-titulo.azul {
+    color: #3498db;
+}
+
+.capturas-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    min-height: 30px;
+    padding: 8px;
+    border-radius: 5px;
+}
+
+.capturas-lista.vermelho {
+    background: rgba(231, 76, 60, 0.2);
+}
+
+.capturas-lista.azul {
+    background: rgba(52, 152, 219, 0.2);
+}
+
+.peca-capturada {
+    color: #DFD0B8;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.peca-capturada .fa-bomb,
+.peca-capturada .fa-flag {
+    font-size: 1em !important;
+}
+
+.peca-capturada.vermelho {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.peca-capturada.azul {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+/* MEDIA QUERIES DAS CAPTURAS */
+
+/* Até 375px em paisagem */
+@media (max-height: 375px) and (orientation: landscape) {
+    .capturas-container {
+        max-width: 96vw;
+        margin: 6px auto;
+        padding: 6px;
+    }
+
+    .capturas-titulo {
+        font-size: 0.7em;
+        padding: 2px;
+        margin: 4px 0;
+    }
+
+    .capturas-lista {
+        min-height: 20px;
+        gap: 4px;
+        padding: 6px;
+    }
+
+    .peca-capturada {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    .peca-capturada .fa-bomb,
+    .peca-capturada .fa-flag {
+        font-size: .9em !important;
+    }
+
+    .game-content:has(.capturas-container) .capturas-container {
+        width: 100%;
+        max-width: 260px;
+        max-height: calc(100vh - var(--nav-h) - 24px);
+        overflow: auto;
+        margin: 0;
+        padding: 1px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    .game-content:has(.capturas-container) .capturas-lista {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-height: 0;
+        padding: 4px;
+    }
+}
+
+/* iPhone 12 Pro em portrait */
+@media (max-width: 390px) and (orientation: portrait) {
+    .capturas-container {
+        max-width: 96vw;
+        margin: 3px auto;
+        padding: 3px;
+    }
+
+    .capturas-titulo {
+        font-size: 0.7em;
+        margin-bottom: 2px;
+    }
+}
+
+/* Orientação paisagem em mobile */
+@media (max-width: 480px) and (orientation: portrait) {
+    .capturas-titulo {
+        font-size: 0.75rem !important;
+        margin-bottom: 3px !important;
+    }
+
+    .capturas-container {
+        padding: 7px !important;
+        margin: 10px auto !important;
+    }
+
+    .capturas-lista {
+        gap: 2px !important;
+        padding: 3px !important;
+    }
+
+    .peca-capturada {
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
+        min-width: 20px !important;
+    }
+}
+
+/* iPad Pro */
+@media (min-width: 821px) and (max-width: 1024px) {
+    .capturas-container {
+        font-size: 1.5rem;
+        padding: 2px;
+    }
+
+    .capturas-lista {
+        padding: 10px;
+    }
+
+    .peca-capturada {
+        font-size: 1.4rem;
+        padding: 7px;
+    }
+
+    .peca-capturada .fa-bomb {
+        width: 40px;
+    }
+}
+
+/* DESKTOP */
+@media (min-width: 1200px) {
+    .capturas-container {
+        display: flex;
+        flex-direction: column;
+        width: clamp(360px, 56vmin, 560px);
+        margin: 0 auto;
+    }
+
+    .capturas-vermelho {
+        order: -1;
+        margin-top: 8px;
+    }
+
+    .capturas-azul {
+        order: 1;
+        margin-bottom: 8px;
+    }
+
+    .peca-capturada {
+        font-size: .7em;
+        padding: 5px;
+    }
+
+    .peca-capturada .fa-bomb {
+        font-size: 1rem;
+    }
+}

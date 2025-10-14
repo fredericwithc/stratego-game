@@ -1,0 +1,192 @@
+/* NAVBAR */
+
+.navbar {
+    position: fixed;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 24px;
+    border-bottom: 2px solid #948979;
+    margin-bottom: 8px;
+    width: 96%;
+    background: #222831;
+}
+
+.brand {
+    color: #DFD0B8;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
+
+.nav-left {
+    flex: 1;
+}
+
+.nav-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #DFD0B8;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-btn {
+    padding: 6px 12px;
+    background: #948979;
+    color: #222831;
+    border: 1px solid #DFD0B8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .06s ease;
+}
+
+.nav-btn:hover {
+    background: #DFD0B8;
+    border-color: #948979;
+}
+
+.nav-btn:active {
+    transform: translateY(1px);
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #948979;
+    border: 1px solid #DFD0B8;
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .06s ease;
+}
+
+.icon-btn:hover {
+    background: #DFD0B8;
+    border-color: #948979;
+}
+
+.icon-btn:active {
+    transform: translateY(1px);
+}
+
+.icon-btn svg {
+    fill: #222831;
+}
+
+/* MEDIA QUERIES DA NAVBAR */
+
+/* Até 375px em paisagem */
+@media (max-height: 375px) and (orientation: landscape) {
+    :root {
+        --nav-h: 34px;
+    }
+
+    .navbar {
+        padding: 4px 10px;
+        border-bottom-width: 1px;
+        height: var(--nav-h);
+        width: 100%;
+    }
+
+    .brand {
+        font-size: 12px;
+    }
+
+    .nav-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .icon-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* iPhone 12 Pro em portrait */
+@media (max-width: 390px) and (orientation: portrait) {
+    .navbar {
+        padding: 6px 12px !important;
+        height: 40px !important;
+    }
+
+    .brand {
+        font-size: 0.8rem !important;
+    }
+
+    .nav-btn {
+        font-size: 0.7rem !important;
+        padding: 4px 8px !important;
+    }
+
+    .icon-btn {
+        width: 28px !important;
+        height: 28px !important;
+    }
+
+    .icon-btn svg {
+        width: 14px !important;
+        height: 14px !important;
+    }
+}
+
+/* TABLET */
+@media (min-width: 768px) and (max-width: 820px) {
+    .navbar {
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 32px);
+        max-width: 1120px;
+    }
+}
+
+/* iPad Pro */
+@media (min-width: 821px) and (max-width: 1024px) {
+    .navbar {
+        padding: 14px 32px;
+    }
+
+    .brand {
+        font-size: 1.7rem;
+    }
+
+    .nav-btn {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+    }
+
+    .icon-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .icon-btn svg {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* DESKTOP */
+@media (min-width: 1200px) {
+
+    .navbar {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 32px);
+        max-width: 1120px;
+    }
+}

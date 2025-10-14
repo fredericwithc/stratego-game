@@ -1,0 +1,300 @@
+
+/* SELETOR DE PEÇAS */
+
+.piece-selector {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.piece-selector h3 {
+    margin-bottom: 15px;
+}
+
+.piece-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    user-select: none;
+    -webkit-user-drag: element;
+    touch-action: none;
+}
+
+.piece-button {
+    padding: 5px;
+    color: #DFD0B8;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+    user-select: none;
+    cursor: pointer !important;
+}
+
+.piece-button:active {
+    cursor: grabbing !important;
+    opacity: 0.7;
+}
+
+.piece-button.playerVermelho {
+    background-color: #e74c3c;
+}
+
+.piece-button.playerVermelho.selected {
+    background-color: #c0392b;
+}
+
+.piece-button.playerAzul {
+    background-color: #3498db;
+}
+
+.piece-button.playerAzul.selected {
+    background-color: #2980b9;
+}
+
+.piece-button[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.piece-button[draggable="true"] {
+    -webkit-user-drag: element;
+    -khtml-user-drag: element;
+    -moz-user-drag: element;
+    -o-user-drag: element;
+    touch-action: none;
+}
+
+.cell[data-pos]:hover {
+    opacity: 0.8;
+}
+
+.cell[draggable="true"]:hover {
+    transform: scale(1.02);
+    transition: transform 0.1s ease;
+}
+
+.cell[draggable="true"]:active {
+    cursor: grabbing;
+    opacity: 0.8;
+}
+
+.drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    background: rgba(223, 208, 184, 0.9);
+    border: 2px solid #948979;
+    border-radius: 5px;
+    padding: 6px 9px;
+    font-weight: bold;
+    transform: translate(-50%, -50%);
+    transition: none;
+}
+
+.piece-button.being-dragged {
+    opacity: 0.5;
+}
+
+.dragging-over {
+    border: 2px dashed #DFD0B8 !important;
+    background-color: rgba(223, 208, 184, 0.2) !important;
+}
+
+.game-board,
+.cell,
+.piece-button {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.selected-piece {
+    margin: 10px 0;
+    z-index: 10;
+}
+
+.piece-reveal {
+    animation: revealPiece 1.5s ease-in-out !important;
+    transform: scale(1.2) !important;
+    background-color: #FFD700 !important;
+    background-image: none !important;
+    border: 3px solid #FFD700 !important;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.9);
+}
+
+@keyframes revealPiece {
+    0% {
+        transform: scale(1) rotateY(180deg);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.3) rotateY(90deg);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.2) rotateY(0deg);
+        opacity: 1;
+    }
+}
+
+/* MEDIA QUERIES DO SELETOR DE PEÇAS */
+
+/* Até 375px em paisagem */
+@media (max-height: 375px) and (orientation: landscape) {
+    .piece-selector h3 {
+        font-size: 0.75rem;
+        margin-bottom: 8px;
+    }
+
+    .piece-selector {
+        font-size: 0.65rem;
+        margin-bottom: 4px;
+    }
+
+    .piece-buttons {
+        gap: 4px !important;
+        max-height: 40vh;
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+
+    .piece-button {
+        width: 50px;
+        height: 35px;
+        padding: 3px;
+        font-size: 11px;
+    }
+
+    .selected-piece {
+        display: none;
+    }
+}
+
+/* iPhone 12 Pro em portrait */
+@media (max-width: 390px) and (orientation: portrait) {
+    .piece-button {
+        width: 50px !important;
+        height: 35px !important;
+        font-size: 11px !important;
+        padding: 3px !important;
+    }
+
+    .piece-buttons {
+        gap: 3px !important;
+        max-height: 40vh;
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+
+    .piece-selector h3 {
+        font-size: 0.8rem !important;
+        margin: 8px 0 !important;
+    }
+
+    .selected-piece {
+        font-size: 0.7rem !important;
+        margin: 5px 0 !important;
+    }
+}
+
+/* Orientação paisagem em mobile */
+@media (max-width: 480px) and (orientation: portrait) {
+    .piece-selector h3 {
+        font-size: .9em;
+    }
+
+    .piece-button {
+        width: 50px !important;
+        height: 35px !important;
+        font-size: 11px !important;
+        padding: 3px !important;
+    }
+
+    .piece-buttons {
+        gap: 3px !important;
+        max-height: 20vh;
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+}
+
+/* TABLET */
+@media (min-width: 768px) and (max-width: 820px) {
+    .piece-buttons {
+        gap: 4px !important;
+        max-height: 40vh;
+        max-width: 90vw;
+        overflow-y: auto;
+        flex-wrap: wrap;
+        margin: 30px;
+    }
+
+    .piece-button {
+        width: 60px !important;
+        height: 40px !important;
+        font-size: 13px !important;
+        padding: 3px !important;
+    }
+}
+
+/* iPad Pro */
+@media (min-width: 821px) and (max-width: 1024px) {
+    .piece-selector {
+        margin-top: 20px;
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .piece-selector h3 {
+        margin: 20px;
+    }
+
+    .piece-button {
+        width: 100px;
+        height: 75px;
+        padding: 8px 12px;
+        font-size: 22px;
+    }
+
+    .piece-button .number-corner {
+        font-size: 20px;
+        top: -13px;
+        right: 1px;
+    }
+
+    .piece-buttons {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .piece-button .patentes-image {
+        height: 60px;
+        width: auto;
+    }
+}
+
+/* Otimizações para dispositivos touch */
+@media (hover: none) and (pointer: coarse) {
+    .piece-button {
+        touch-action: manipulation;
+        -webkit-user-drag: element;
+    }
+
+    .game-board {
+        touch-action: pan-y;
+    }
+}
