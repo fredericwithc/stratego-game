@@ -31,31 +31,17 @@ export const colocarPecaConfiguracao = (
     ghostElement,
     setGhostElement
 ) => {
-    console.log('=== COLOCAR PEÇA ===');
-    console.log('pecaSelecionadaConfig:', pecaSelecionadaConfig);
-    console.log('draggedPiece:', draggedPiece);
-    console.log('posicao:', posicao);
-    console.log('tabuleiro[posicao]:', tabuleiro[posicao]);
-
     if (!pecaSelecionadaConfig && !draggedPiece) return;
     const pecaParaColocar = draggedPiece || pecaSelecionadaConfig;
-
-    console.log('pecaParaColocar:', pecaParaColocar);
 
     // Verificar se é território correto
     const linha = posicao[0];
     const territorioValido = (jogadorAtual === "Vermelho" && linha >= 'A' && linha <= 'D') ||
         (jogadorAtual === "Azul" && linha >= 'G' && linha <= 'J');
 
-    console.log('territorioValido:', territorioValido);
-    console.log('tabuleiro[posicao] existe?:', !!tabuleiro[posicao]);
-
     if (!territorioValido || tabuleiro[posicao]) {
-        console.log('❌ VALIDAÇÃO FALHOU - não vai colocar');
         return;
     }
-
-    console.log('✅ VAI COLOCAR A PEÇA');
 
     // Colocar peça
     const simbolo = pecaParaColocar === 'bomba' ? <FontAwesomeIcon icon={faBomb} className="bomb-icon" /> :
