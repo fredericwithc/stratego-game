@@ -1,6 +1,8 @@
 /* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
 
 // Imports do Firebase
 import { database } from './firebase';
@@ -217,8 +219,11 @@ function App() {
             const sincronizar = async () => {
                 try {
                     const { ref, set } = require('firebase/database');
+                    // Atualizar tabuleiro no Firebase (SERIALIZADO)
                     const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
-                    await set(tabuleiroRef, tabuleiro);
+                    const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
+                    await set(tabuleiroRef, tabuleiroSerializado);
+                    console.log('[FIREBASE] Tabuleiro serializado e enviado:', Object.keys(tabuleiroSerializado).length, 'peças');
                     console.log('Tabuleiro auto-sincronizado');
                 } catch (error) {
                     console.error('Erro ao sincronizar:', error);
@@ -287,10 +292,11 @@ function App() {
 
             console.log('Dados recebidos do Firebase:', salaData);
 
-            // 1. SINCRONIZAR TABULEIRO (PRIMEIRO!)
-            if (salaData.tabuleiro) {
+            // 1. SINCRONIZAR TABULEIRO (PRIMEIRO!) - COM DESSERIALIZAÇÃO
+            if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
                 console.log('Sincronizando tabuleiro:', Object.keys(salaData.tabuleiro).length, 'peças');
-                setTabuleiro(salaData.tabuleiro);
+                const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
+                setTabuleiro(tabuleiroDesserializado);
             }
 
             // 2. SINCRONIZAR FASE DO JOGO
@@ -774,6 +780,58 @@ function App() {
                 finalizarMovimentoIA();
             }
         }, 1000);
+    };
+
+    // FUNÇÃO: Converter tabuleiro para formato serializável (Firebase)
+    const serializarTabuleiro = (tabuleiro) => {
+        const tabuleiroSerializado = {};
+
+        Object.entries(tabuleiro).forEach(([posicao, peca]) => {
+            if (!peca) return;
+
+            let numeroSerializado = peca.numero;
+
+            // Se for React Element, converter para string
+            if (React.isValidElement(peca.numero)) {
+                if (peca.numero.props.icon.iconName === 'bomb') {
+                    numeroSerializado = 'BOMBA';
+                } else if (peca.numero.props.icon.iconName === 'flag') {
+                    numeroSerializado = 'BANDEIRA';
+                }
+            }
+
+            tabuleiroSerializado[posicao] = {
+                numero: numeroSerializado,
+                jogador: peca.jogador
+            };
+        });
+
+        return tabuleiroSerializado;
+    };
+
+    // FUNÇÃO: Converter tabuleiro do Firebase de volta para formato local
+    const desserializarTabuleiro = (tabuleiroSerializado) => {
+        const tabuleiro = {};
+
+        Object.entries(tabuleiroSerializado).forEach(([posicao, peca]) => {
+            if (!peca) return;
+
+            let numero = peca.numero;
+
+            // Converter strings de volta para React Elements
+            if (peca.numero === 'BOMBA') {
+                numero = <FontAwesomeIcon icon={faBomb} className="bomb-icon" />;
+            } else if (peca.numero === 'BANDEIRA') {
+                numero = <FontAwesomeIcon icon={faFlag} className="flag-icon" />;
+            }
+
+            tabuleiro[posicao] = {
+                numero: numero,
+                jogador: peca.jogador
+            };
+        });
+
+        return tabuleiro;
     };
 
     // FUNÇÃO: Detectar quando é vez da IA
