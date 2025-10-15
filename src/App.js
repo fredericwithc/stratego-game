@@ -75,7 +75,8 @@ function App() {
     const [estadoOnline, setEstadoOnline] = useState({
         sala: null,
         conectado: false,
-        jogadorHost: false
+        jogadorHost: false,
+        minhaCor: null
     });
 
     // Estado: criar a sala para modo online
@@ -228,6 +229,56 @@ function App() {
         };
     }, []);
 
+    // EFEITO: Limpar ao sair da página (modo online)
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (modoJogo === 'online' && estadoOnline.sala && jogadorOnlineId) {
+                const { sairDaSala } = require('./game-modes/OnlineGame');
+                sairDaSala(database, estadoOnline.sala, jogadorOnlineId);
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            handleBeforeUnload(); // Executar ao desmontar componente
+        };
+    }, [modoJogo, estadoOnline.sala, jogadorOnlineId]);
+
+    // EFEITO: Sincronizar fase do jogo no modo online
+    useEffect(() => {
+        if (modoJogo !== 'online' || !estadoOnline.sala) return;
+
+        const { onValue, ref } = require('firebase/database');
+        const salaRef = ref(database, `salas/${estadoOnline.sala}`);
+
+        const unsubscribe = onValue(salaRef, (snapshot) => {
+            const salaData = snapshot.val();
+            if (!salaData) return;
+
+            // Se sou Jogador Azul e estava aguardando
+            if (estadoOnline.minhaCor === 'Azul' && faseJogo === 'aguardando') {
+                // Verificar se Vermelho terminou
+                const jogadores = salaData.jogadores || {};
+                const jogadorVermelho = Object.values(jogadores).find(j => j.cor === 'Vermelho');
+
+                if (jogadorVermelho && jogadorVermelho.pronto) {
+                    setFaseJogo('configuracao');
+                    setJogadorAtual('Azul');
+                    setMensagem('Agora é sua vez! Posicione suas peças no território azul.');
+                }
+            }
+
+            // Sincronizar tabuleiro
+            if (salaData.tabuleiro) {
+                setTabuleiro(salaData.tabuleiro);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor, faseJogo]);
+
     // FUNÇÕES DO JOGO
 
     // FUNÇÃO: Reiniciar o jogo
@@ -378,7 +429,22 @@ function App() {
             return;
         }
 
+        // BLOQUEAR CLIQUES NA FASE "AGUARDANDO"
+        if (faseJogo === 'aguardando') {
+            setMensagem('Aguarde o outro jogador terminar a configuração.');
+            return;
+        }
+
         if (faseJogo === 'configuracao') {
+            // MODO ONLINE: Só posso interagir na minha vez
+            if (modoJogo === 'online' && estadoOnline.minhaCor) {
+                // Não é minha vez de configurar
+                if (jogadorAtual !== estadoOnline.minhaCor) {
+                    setMensagem(`Aguarde o jogador ${jogadorAtual} configurar suas peças.`);
+                    return;
+                }
+            }
+
             const pecaNaPosicao = tabuleiro[posicao];
 
             if (pecaSelecionadaNoTabuleiro) {
@@ -393,6 +459,12 @@ function App() {
             }
 
             if (pecaNaPosicao && pecaNaPosicao.jogador === jogadorAtual) {
+                // MODO ONLINE: Só posso selecionar minhas peças
+                if (modoJogo === 'online' && estadoOnline.minhaCor && pecaNaPosicao.jogador !== estadoOnline.minhaCor) {
+                    setMensagem('Você não pode mover peças do oponente!');
+                    return;
+                }
+
                 setPecaSelecionadaNoTabuleiro(posicao);
                 return;
             }
@@ -660,7 +732,8 @@ function App() {
             faseJogo,
             modoJogo,
             jogadorAtual,
-            mostrarTrocaTurno
+            mostrarTrocaTurno,
+            estadoOnline
         );
     };
 
@@ -705,20 +778,48 @@ function App() {
             )}
 
             <div className={`game-content ${modoJogo === 'menu' ? 'hidden' : ''}`}>
-                {faseJogo === 'configuracao' ? (
+                {faseJogo === 'aguardando' ? (
+                    <div className="config-container">
+                        <h2 className="config-title">Aguardando...</h2>
+                        <p className="config-description">
+                            O Jogador Vermelho está posicionando suas peças.
+                            Aguarde até que ele termine para começar seu posicionamento.
+                        </p>
+                        <div className="loading-animation">⏳</div>
+                    </div>
+                ) : faseJogo === 'configuracao' ? (
                     <div>
                         <div className="config-container">
                             <h2 className="config-title">Posicionamento - Jogador {jogadorAtual}</h2>
                             <p className="config-description">Posicione suas peças no seu território (linhas {jogadorAtual === "Vermelho" ? 'A-D' : 'G-J'})</p>
                         </div>
 
-                        <PieceSelector
-                            pecasDisponiveis={pecasDisponiveis}
-                            jogadorAtual={jogadorAtual}
-                            pecaSelecionadaConfig={pecaSelecionadaConfig}
-                            setPecaSelecionadaConfig={setPecaSelecionadaConfig}
-                            modoMobile={modoMobile}
-                        />
+                        {/* SÓ MOSTRAR SELETOR QUANDO FOR MINHA VEZ */}
+                        {(modoJogo !== 'online' || (estadoOnline.minhaCor === jogadorAtual)) && (
+                            <PieceSelector
+                                pecasDisponiveis={pecasDisponiveis}
+                                jogadorAtual={jogadorAtual}
+                                pecaSelecionadaConfig={pecaSelecionadaConfig}
+                                setPecaSelecionadaConfig={setPecaSelecionadaConfig}
+                                modoMobile={modoMobile}
+                            />
+                        )}
+
+                        {/* MENSAGEM QUANDO NÃO É MINHA VEZ */}
+                        {modoJogo === 'online' && estadoOnline.minhaCor !== jogadorAtual && (
+                            <div className="waiting-message" style={{
+                                textAlign: 'center',
+                                padding: '20px',
+                                backgroundColor: 'rgba(0,0,0,0.3)',
+                                borderRadius: '10px',
+                                margin: '20px auto',
+                                maxWidth: '500px',
+                                color: '#DFD0B8'
+                            }}>
+                                <h3>Aguardando...</h3>
+                                <p>O jogador {jogadorAtual} está posicionando suas peças.</p>
+                            </div>
+                        )}
 
                         <div className="finish-config">
                             <button
@@ -781,22 +882,6 @@ function App() {
 
                 <RulesModal mostrarRegras={mostrarRegras} fecharRegras={fecharRegras} />
 
-                <OnlineModal
-                    mostrarModalOnline={mostrarModalOnline}
-                    setMostrarModalOnline={setMostrarModalOnline}
-                    codigoSala={codigoSala}
-                    setCodigoSala={setCodigoSala}
-                    entrarNaSala={handleEntrarNaSala}
-                    criarSala={handleCriarSala}
-                    erroConexao={erroConexao}
-                    setErroConexao={setErroConexao}
-                    telaSalaCriada={telaSalaCriada}
-                    setTelaSalaCriada={setTelaSalaCriada}
-                    estadoOnline={estadoOnline}
-                    setFaseJogo={setFaseJogo}
-                    setJogadorAtual={setJogadorAtual}
-                />
-
                 <TurnChangeModal
                     mostrarTrocaTurno={mostrarTrocaTurno}
                     setMostrarTrocaTurno={setMostrarTrocaTurno}
@@ -809,6 +894,23 @@ function App() {
                     reiniciarJogo={reiniciarJogo}
                 />
             </div>
+
+            <OnlineModal
+                mostrarModalOnline={mostrarModalOnline}
+                setMostrarModalOnline={setMostrarModalOnline}
+                codigoSala={codigoSala}
+                setCodigoSala={setCodigoSala}
+                entrarNaSala={handleEntrarNaSala}
+                criarSala={handleCriarSala}
+                erroConexao={erroConexao}
+                setErroConexao={setErroConexao}
+                telaSalaCriada={telaSalaCriada}
+                setTelaSalaCriada={setTelaSalaCriada}
+                estadoOnline={estadoOnline}
+                setFaseJogo={setFaseJogo}
+                setJogadorAtual={setJogadorAtual}
+            />
+
         </div>
     );
 }

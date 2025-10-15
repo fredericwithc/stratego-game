@@ -13,7 +13,8 @@ export const getPeca = (
     faseJogo,
     modoJogo,
     jogadorAtual,
-    mostrarTrocaTurno
+    mostrarTrocaTurno,
+    estadoOnline = null 
 ) => {
     const peca = tabuleiro[posicao];
     if (!peca) return '';
@@ -24,6 +25,33 @@ export const getPeca = (
         (posicao === revealCombate.origem || posicao === revealCombate.destino)
     ) {
         return renderPieceWithRank(peca.numero);
+    }
+
+    // MODO ONLINE - LÓGICA ESPECIAL
+    if (modoJogo === 'online' && estadoOnline && estadoOnline.minhaCor) {
+        const minhaCor = estadoOnline.minhaCor;
+
+        // Durante configuração no modo online
+        if (faseJogo === 'configuracao' || faseJogo === 'aguardando') {
+            // Só mostro a FACE das MINHAS peças
+            if (peca.jogador === minhaCor) {
+                return renderPieceWithRank(peca.numero);
+            } else {
+                // Peças do oponente ficam ocultas
+                return renderPieceBack(peca.jogador);
+            }
+        }
+
+        // Durante o jogo no modo online
+        if (faseJogo === 'jogando') {
+            // Só mostro a FACE das MINHAS peças
+            if (peca.jogador === minhaCor) {
+                return renderPieceWithRank(peca.numero);
+            } else {
+                // Peças do oponente ficam ocultas (até combate)
+                return renderPieceBack(peca.jogador);
+            }
+        }
     }
 
     // Durante configuração, controle de visibilidade

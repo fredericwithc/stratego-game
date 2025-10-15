@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWebAwesome } from '@fortawesome/free-brands-svg-icons';
@@ -14,9 +13,11 @@ function GameMenu({ setModoJogo, setFaseJogo, setTabuleiro, setMensagem, posicio
             <div className="menu-container">
                 <h2 className="menu-title">Escolha o Modo de Jogo</h2>
 
+                {/* BOTÃO 1: 2 JOGADORES LOCAL */}
                 <button
                     className="menu-button"
                     onClick={() => {
+                        setMostrarModalOnline(false); // ✅ Garante que o modal está fechado
                         setModoJogo('local');
                         setFaseJogo('configuracao');
                     }}
@@ -24,11 +25,13 @@ function GameMenu({ setModoJogo, setFaseJogo, setTabuleiro, setMensagem, posicio
                     2 Jogadores Local
                 </button>
 
+                {/* BOTÃO 2: CONTRA IA */}
                 <button
                     className="menu-button"
                     onClick={() => {
+                        setMostrarModalOnline(false); // ✅ Garante que o modal está fechado
                         setModoJogo('ia');
-                        setTabuleiro({}); // Limpar tabuleiro
+                        setTabuleiro({});
                         setMensagem('IA posicionando peças...');
 
                         setTimeout(() => {
@@ -42,10 +45,11 @@ function GameMenu({ setModoJogo, setFaseJogo, setTabuleiro, setMensagem, posicio
                     Contra IA
                 </button>
 
+                {/* BOTÃO 3: JOGAR ONLINE */}
                 <button
                     className="menu-button"
                     onClick={() => {
-                        setMostrarModalOnline(true); // só abre o modal
+                        setMostrarModalOnline(true); // ✅ Abre o modal
                     }}
                 >
                     Jogar Online
