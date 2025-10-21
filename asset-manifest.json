@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/stratego-game/static/css/main.55dc059e.css",
-    "main.js": "/stratego-game/static/js/main.654415f1.js",
+    "main.js": "/stratego-game/static/js/main.04f428ed.js",
     "static/media/Board_map.png": "/stratego-game/static/media/Board_map.79ca4d0ff16444ba5c2f.png",
     "index.html": "/stratego-game/index.html",
     "main.55dc059e.css.map": "/stratego-game/static/css/main.55dc059e.css.map",
-    "main.654415f1.js.map": "/stratego-game/static/js/main.654415f1.js.map"
+    "main.04f428ed.js.map": "/stratego-game/static/js/main.04f428ed.js.map"
   },
   "entrypoints": [
     "static/css/main.55dc059e.css",
-    "static/js/main.654415f1.js"
+    "static/js/main.04f428ed.js"
   ]
 }
