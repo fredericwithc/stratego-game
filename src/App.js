@@ -43,7 +43,7 @@ import {
 } from './game-modes/AIGame';
 
 // Imports do jogo online
-import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro } from './game-modes/OnlineGame';
+import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro, serializarTabuleiro } from './game-modes/OnlineGame';
 
 function App() {
     // ESTADOS DO JOGO
@@ -276,23 +276,28 @@ function App() {
             );
             const euEstouPronto = meuJogador && meuJogador.pronto;
 
-            // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO E MESCLAGEM
+            // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO
             if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
                 console.log('Sincronizando tabuleiro:', Object.keys(salaData.tabuleiro).length, 'peças');
                 const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
 
                 setTabuleiro(prevTabuleiro => {
-                    const novoTabuleiro = { ...tabuleiroDesserializado };
-
+                    // Se estou configurando, ADICIONAR minhas peças ao tabuleiro do Firebase
                     if (faseJogo === 'configuracao' && estadoOnline.minhaCor) {
+                        const novoTabuleiro = { ...tabuleiroDesserializado };
+
+                        // Adicionar minhas peças locais que ainda não foram sincronizadas
                         Object.entries(prevTabuleiro).forEach(([pos, peca]) => {
-                            if (peca && peca.jogador === estadoOnline.minhaCor) {
+                            if (peca && peca.jogador === estadoOnline.minhaCor && !tabuleiroDesserializado[pos]) {
                                 novoTabuleiro[pos] = peca;
                             }
                         });
+
+                        return novoTabuleiro;
                     }
 
-                    return novoTabuleiro;
+                    // Fora da configuração, usar o tabuleiro do Firebase diretamente
+                    return tabuleiroDesserializado;
                 });
             }
 
@@ -580,27 +585,30 @@ function App() {
                     setGhostElement
                 );
 
-                // SINCRONIZAR TABULEIRO NO MODO ONLINE
+                // SINCRONIZAR PEÇA NO MODO ONLINE
                 if (modoJogo === 'online' && estadoOnline.sala) {
-                    // Usar useEffect para sincronizar após atualização do estado
+                    // Objeto contendo apenas a peça que acabou de ser colocada
+                    const pecaParaSerializar = {
+                        [posicao]: {
+                            numero: pecaSelecionadaConfig,
+                            jogador: jogadorAtual
+                        }
+                    };
+
+                    // Serializa apenas essa peça (para lidar com ícones de Bomba e Bandeira)
+                    const pecaSerializada = serializarTabuleiro(pecaParaSerializar);
+
                     const sincronizar = async () => {
                         try {
-                            const { ref, set } = require('firebase/database');
+                            // Importe 'update' para mesclar os dados, e não sobrescrever
+                            const { ref, update } = require('firebase/database');
                             const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
 
-                            // Pegar o tabuleiro atualizado do estado
-                            const tabuleiroAtual = { ...tabuleiro };
-
-                            // Adicionar a peça que acabou de ser colocada
-                            tabuleiroAtual[posicao] = {
-                                numero: pecaSelecionadaConfig,
-                                jogador: jogadorAtual
-                            };
-
-                            await set(tabuleiroRef, tabuleiroAtual);
-                            console.log('Tabuleiro sincronizado:', Object.keys(tabuleiroAtual).length, 'peças');
+                            // Use update para adicionar a nova peça sem apagar as do oponente
+                            await update(tabuleiroRef, pecaSerializada);
+                            console.log('[ONLINE] Peça sincronizada em:', posicao);
                         } catch (error) {
-                            console.error('Erro ao sincronizar tabuleiro:', error);
+                            console.error('[ONLINE] Erro ao sincronizar peça:', error);
                         }
                     };
 

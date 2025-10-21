@@ -93,22 +93,29 @@ export const marcarJogadorPronto = async (
     minhaCor
 ) => {
     try {
+        const { ref, set, get, update } = require('firebase/database');
+
         // 1. Marcar como pronto
         const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}/pronto`);
         await set(jogadorRef, true);
         console.log('[ONLINE] Jogador marcado como pronto');
 
-        // 2. Sincronizar tabuleiro SERIALIZADO
+        // 2. MESCLAR tabuleiro (não sobrescrever!)
         const tabuleiroRef = ref(database, `salas/${sala}/tabuleiro`);
-        const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
-        await set(tabuleiroRef, tabuleiroSerializado);
-        console.log('[ONLINE] Tabuleiro sincronizado:', Object.keys(tabuleiroSerializado).length, 'pecas');
+        const snapTabuleiro = await get(tabuleiroRef);
+        const tabuleiroFirebase = snapTabuleiro.val() || {};
+
+        // Serializar minhas peças
+        const minhasPecas = serializarTabuleiro(tabuleiro);
+
+        // Mesclar: manter peças do Firebase + adicionar minhas peças
+        const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecas };
+
+        await set(tabuleiroRef, tabuleiroMesclado);
+        console.log('[ONLINE] Tabuleiro mesclado:', Object.keys(tabuleiroMesclado).length, 'pecas');
 
         // 3. Atualizar fase do jogo
         if (minhaCor === 'Vermelho') {
-            const faseRef = ref(database, `salas/${sala}/faseJogo`);
-            await set(faseRef, 'configuracao');
-
             const jogadorAtualRef = ref(database, `salas/${sala}/jogadorAtual`);
             await set(jogadorAtualRef, 'Azul');
             console.log('[ONLINE] Vermelho pronto - vez do Azul');
