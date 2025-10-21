@@ -43,7 +43,7 @@ import {
 } from './game-modes/AIGame';
 
 // Imports do jogo online
-import { gerarCodigoSala, criarSala, entrarNaSala } from './game-modes/OnlineGame';
+import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro } from './game-modes/OnlineGame';
 
 function App() {
     // ESTADOS DO JOGO
@@ -213,29 +213,6 @@ function App() {
         }
     }, [faseJogo, jogadorAtual, tabuleiro]);
 
-    // EFEITO: Sincronizar tabuleiro quando mudar (modo online)
-    useEffect(() => {
-        if (modoJogo === 'online' && estadoOnline.sala && faseJogo === 'configuracao') {
-            const sincronizar = async () => {
-                try {
-                    const { ref, set } = require('firebase/database');
-                    // Atualizar tabuleiro no Firebase (SERIALIZADO)
-                    const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
-                    const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
-                    await set(tabuleiroRef, tabuleiroSerializado);
-                    console.log('[FIREBASE] Tabuleiro serializado e enviado:', Object.keys(tabuleiroSerializado).length, 'peças');
-                    console.log('Tabuleiro auto-sincronizado');
-                } catch (error) {
-                    console.error('Erro ao sincronizar:', error);
-                }
-            };
-
-            // Debounce para evitar muitas escritas
-            const timer = setTimeout(sincronizar, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [tabuleiro, modoJogo, estadoOnline.sala, faseJogo]);
-
     // EFEITO: Detectar orientação da tela
     useEffect(() => {
         const handleOrientationChange = () => {
@@ -292,11 +269,31 @@ function App() {
 
             console.log('Dados recebidos do Firebase:', salaData);
 
-            // 1. SINCRONIZAR TABULEIRO (PRIMEIRO!) - COM DESSERIALIZAÇÃO
+            // VERIFICAR SE EU JÁ ESTOU PRONTO NO FIREBASE
+            const jogadores = salaData.jogadores || {};
+            const meuJogador = Object.values(jogadores).find(
+                j => j.cor === estadoOnline.minhaCor
+            );
+            const euEstouPronto = meuJogador && meuJogador.pronto;
+
+            // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO E MESCLAGEM
             if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
                 console.log('Sincronizando tabuleiro:', Object.keys(salaData.tabuleiro).length, 'peças');
                 const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
-                setTabuleiro(tabuleiroDesserializado);
+
+                setTabuleiro(prevTabuleiro => {
+                    const novoTabuleiro = { ...tabuleiroDesserializado };
+
+                    if (faseJogo === 'configuracao' && estadoOnline.minhaCor) {
+                        Object.entries(prevTabuleiro).forEach(([pos, peca]) => {
+                            if (peca && peca.jogador === estadoOnline.minhaCor) {
+                                novoTabuleiro[pos] = peca;
+                            }
+                        });
+                    }
+
+                    return novoTabuleiro;
+                });
             }
 
             // 2. SINCRONIZAR FASE DO JOGO
@@ -311,27 +308,34 @@ function App() {
                 setJogadorAtual(salaData.jogadorAtual);
             }
 
-            // 4. VERIFICAR SE VERMELHO TERMINOU (para Azul sair da tela de aguardar)
+            // 4. VERIFICAR SE VERMELHO TERMINOU
             if (estadoOnline.minhaCor === 'Azul' && faseJogo === 'aguardando') {
-                const jogadores = salaData.jogadores || {};
                 const jogadorVermelho = Object.values(jogadores).find(j => j.cor === 'Vermelho');
 
                 if (jogadorVermelho && jogadorVermelho.pronto) {
                     console.log('Vermelho pronto! Azul pode começar.');
                     setFaseJogo('configuracao');
                     setJogadorAtual('Azul');
-                    setJogadorPronto(false); // Permitir que Azul clique no botão
+                    setJogadorPronto(false);
                     setMensagem('Agora é sua vez! Posicione suas peças no território azul (linhas G-J).');
                 }
             }
 
-            // 5. VERIFICAR SE JOGO INICIOU (ambos prontos)
+            // 5. VERIFICAR SE JOGO INICIOU
             if (salaData.faseJogo === 'jogando' && faseJogo !== 'jogando') {
                 console.log('Jogo iniciando!');
                 setFaseJogo('jogando');
                 setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
-                setJogadorPronto(false); // ✅ Resetar estado
+                setJogadorPronto(false);
                 setMensagem('Configuração completa! Que comece a batalha!');
+            }
+
+            // 6. MANTER BOTÃO DESABILITADO SE EU JÁ CLIQUEI
+            if (euEstouPronto && faseJogo === 'configuracao') {
+                if (!jogadorPronto) {
+                    console.log('Sincronizando estado do botão - já estou pronto no Firebase');
+                    setJogadorPronto(true);
+                }
             }
         });
 
@@ -339,7 +343,7 @@ function App() {
             console.log('Removendo listener Firebase');
             unsubscribe();
         };
-    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor]);
+    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor, faseJogo, jogadorPronto]);
 
     // FUNÇÕES DO JOGO
 
@@ -782,58 +786,6 @@ function App() {
         }, 1000);
     };
 
-    // FUNÇÃO: Converter tabuleiro para formato serializável (Firebase)
-    const serializarTabuleiro = (tabuleiro) => {
-        const tabuleiroSerializado = {};
-
-        Object.entries(tabuleiro).forEach(([posicao, peca]) => {
-            if (!peca) return;
-
-            let numeroSerializado = peca.numero;
-
-            // Se for React Element, converter para string
-            if (React.isValidElement(peca.numero)) {
-                if (peca.numero.props.icon.iconName === 'bomb') {
-                    numeroSerializado = 'BOMBA';
-                } else if (peca.numero.props.icon.iconName === 'flag') {
-                    numeroSerializado = 'BANDEIRA';
-                }
-            }
-
-            tabuleiroSerializado[posicao] = {
-                numero: numeroSerializado,
-                jogador: peca.jogador
-            };
-        });
-
-        return tabuleiroSerializado;
-    };
-
-    // FUNÇÃO: Converter tabuleiro do Firebase de volta para formato local
-    const desserializarTabuleiro = (tabuleiroSerializado) => {
-        const tabuleiro = {};
-
-        Object.entries(tabuleiroSerializado).forEach(([posicao, peca]) => {
-            if (!peca) return;
-
-            let numero = peca.numero;
-
-            // Converter strings de volta para React Elements
-            if (peca.numero === 'BOMBA') {
-                numero = <FontAwesomeIcon icon={faBomb} className="bomb-icon" />;
-            } else if (peca.numero === 'BANDEIRA') {
-                numero = <FontAwesomeIcon icon={faFlag} className="flag-icon" />;
-            }
-
-            tabuleiro[posicao] = {
-                numero: numero,
-                jogador: peca.jogador
-            };
-        });
-
-        return tabuleiro;
-    };
-
     // FUNÇÃO: Detectar quando é vez da IA
     useEffect(() => {
         if (
@@ -1022,39 +974,23 @@ function App() {
                                     // MODO ONLINE: Sincronizar com Firebase
                                     if (modoJogo === 'online' && estadoOnline.sala && jogadorOnlineId) {
                                         try {
-                                            const { ref, set, get } = require('firebase/database');
-
-                                            // Marcar jogador como pronto
-                                            const jogadorRef = ref(database, `salas/${estadoOnline.sala}/jogadores/${jogadorOnlineId}/pronto`);
-                                            await set(jogadorRef, true);
-
-                                            // Atualizar tabuleiro no Firebase
-                                            const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
-                                            await set(tabuleiroRef, tabuleiro);
+                                            await marcarJogadorPronto(
+                                                database,
+                                                estadoOnline.sala,
+                                                jogadorOnlineId,
+                                                tabuleiro,
+                                                estadoOnline.minhaCor
+                                            );
 
                                             if (estadoOnline.minhaCor === "Vermelho") {
-                                                // Vermelho terminou - passar para Azul
-                                                const faseRef = ref(database, `salas/${estadoOnline.sala}/faseJogo`);
-                                                await set(faseRef, 'configuracao');
-
-                                                const jogadorAtualRef = ref(database, `salas/${estadoOnline.sala}/jogadorAtual`);
-                                                await set(jogadorAtualRef, 'Azul');
-
                                                 setMensagem('Você está pronto! Aguardando Jogador Azul...');
-                                            } else if (estadoOnline.minhaCor === "Azul") {
-                                                // Azul terminou - iniciar jogo
-                                                const faseRef = ref(database, `salas/${estadoOnline.sala}/faseJogo`);
-                                                await set(faseRef, 'jogando');
-
-                                                const jogadorAtualRef = ref(database, `salas/${estadoOnline.sala}/jogadorAtual`);
-                                                await set(jogadorAtualRef, 'Vermelho');
-
+                                            } else {
                                                 setMensagem('Aguardando o jogo iniciar...');
                                             }
                                         } catch (error) {
                                             console.error('Erro ao sincronizar:', error);
                                             setMensagem('Erro ao sincronizar com o servidor.');
-                                            setJogadorPronto(false); // Permitir tentar novamente
+                                            setJogadorPronto(false);
                                         }
                                     } else {
                                         // MODO LOCAL/IA (código original)
@@ -1064,10 +1000,20 @@ function App() {
                                             setMensagem('Jogador Vermelho pronto! Agora é a vez do Jogador Azul configurar suas peças.');
                                             setJogadorPronto(false); // Resetar para o próximo jogador
                                         } else {
-                                            setFaseJogo('jogando');
-                                            setJogadorAtual("Vermelho");
-                                            setPecaSelecionadaConfig(null);
-                                            setMensagem('Configuração completa! Que comece a batalha!');
+                                            // MODO LOCAL: Mostrar modal antes de iniciar
+                                            if (modoJogo === 'local') {
+                                                setFaseJogo('jogando');
+                                                setJogadorAtual("Vermelho");
+                                                setPecaSelecionadaConfig(null);
+                                                setMensagem('Configuração completa! Que comece a batalha!');
+                                                setMostrarTrocaTurno(true); // Mostrar modal IMEDIATAMENTE
+                                            } else {
+                                                // MODO IA: Não precisa de modal
+                                                setFaseJogo('jogando');
+                                                setJogadorAtual("Vermelho");
+                                                setPecaSelecionadaConfig(null);
+                                                setMensagem('Configuração completa! Que comece a batalha!');
+                                            }
                                         }
                                     }
                                 }}

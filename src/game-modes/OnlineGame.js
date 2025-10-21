@@ -1,11 +1,64 @@
 import { ref, set, onValue, get, remove } from 'firebase/database';
+import React from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
 
-// FUNÇÃO: Gerar código de sala aleatório 
+// FUNCAO: Gerar codigo de sala aleatorio 
 export const gerarCodigoSala = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-// FUNÇÃO: Salvar ID do jogador no localStorage
+// FUNCAO: Serializar tabuleiro (converter React Elements para strings)
+export const serializarTabuleiro = (tabuleiro) => {
+    const tabuleiroSerializado = {};
+
+    Object.entries(tabuleiro).forEach(([posicao, peca]) => {
+        if (!peca) return;
+
+        let numeroSerializado = peca.numero;
+
+        if (React.isValidElement(peca.numero)) {
+            if (peca.numero.props.icon.iconName === 'bomb') {
+                numeroSerializado = 'BOMBA';
+            } else if (peca.numero.props.icon.iconName === 'flag') {
+                numeroSerializado = 'BANDEIRA';
+            }
+        }
+
+        tabuleiroSerializado[posicao] = {
+            numero: numeroSerializado,
+            jogador: peca.jogador
+        };
+    });
+
+    return tabuleiroSerializado;
+};
+
+// FUNCAO: Desserializar tabuleiro (converter strings para React Elements)
+export const desserializarTabuleiro = (tabuleiroSerializado) => {
+    const tabuleiro = {};
+
+    Object.entries(tabuleiroSerializado).forEach(([posicao, peca]) => {
+        if (!peca) return;
+
+        let numero = peca.numero;
+
+        if (peca.numero === 'BOMBA') {
+            numero = <FontAwesomeIcon icon={faBomb} className="bomb-icon" />;
+        } else if (peca.numero === 'BANDEIRA') {
+            numero = <FontAwesomeIcon icon={faFlag} className="flag-icon" />;
+        }
+
+        tabuleiro[posicao] = {
+            numero: numero,
+            jogador: peca.jogador
+        };
+    });
+
+    return tabuleiro;
+};
+
+// FUNCAO: Salvar ID do jogador no localStorage
 const salvarJogadorId = (sala, jogadorId, cor) => {
     localStorage.setItem(`stratego_sala_${sala}`, JSON.stringify({
         jogadorId,
@@ -14,14 +67,13 @@ const salvarJogadorId = (sala, jogadorId, cor) => {
     }));
 };
 
-// FUNÇÃO: Recuperar ID do jogador do localStorage
+// FUNCAO: Recuperar ID do jogador do localStorage
 const recuperarJogadorId = (sala) => {
     const data = localStorage.getItem(`stratego_sala_${sala}`);
     if (!data) return null;
 
     try {
         const parsed = JSON.parse(data);
-        // Limpar se passou mais de 24h
         if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
             localStorage.removeItem(`stratego_sala_${sala}`);
             return null;
@@ -32,7 +84,51 @@ const recuperarJogadorId = (sala) => {
     }
 };
 
-// FUNÇÃO: Criar sala nova 
+// FUNCAO: Marcar jogador como pronto e sincronizar tabuleiro
+export const marcarJogadorPronto = async (
+    database,
+    sala,
+    jogadorId,
+    tabuleiro,
+    minhaCor
+) => {
+    try {
+        // 1. Marcar como pronto
+        const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}/pronto`);
+        await set(jogadorRef, true);
+        console.log('[ONLINE] Jogador marcado como pronto');
+
+        // 2. Sincronizar tabuleiro SERIALIZADO
+        const tabuleiroRef = ref(database, `salas/${sala}/tabuleiro`);
+        const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
+        await set(tabuleiroRef, tabuleiroSerializado);
+        console.log('[ONLINE] Tabuleiro sincronizado:', Object.keys(tabuleiroSerializado).length, 'pecas');
+
+        // 3. Atualizar fase do jogo
+        if (minhaCor === 'Vermelho') {
+            const faseRef = ref(database, `salas/${sala}/faseJogo`);
+            await set(faseRef, 'configuracao');
+
+            const jogadorAtualRef = ref(database, `salas/${sala}/jogadorAtual`);
+            await set(jogadorAtualRef, 'Azul');
+            console.log('[ONLINE] Vermelho pronto - vez do Azul');
+        } else if (minhaCor === 'Azul') {
+            const faseRef = ref(database, `salas/${sala}/faseJogo`);
+            await set(faseRef, 'jogando');
+
+            const jogadorAtualRef = ref(database, `salas/${sala}/jogadorAtual`);
+            await set(jogadorAtualRef, 'Vermelho');
+            console.log('[ONLINE] Azul pronto - jogo iniciando');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('[ONLINE] Erro ao marcar pronto:', error);
+        throw error;
+    }
+};
+
+// FUNCAO: Criar sala nova 
 export const criarSala = async (
     database,
     setEstadoOnline,
@@ -65,7 +161,6 @@ export const criarSala = async (
             criadaEm: Date.now()
         });
 
-        // Salvar no localStorage
         salvarJogadorId(codigo, jogadorId, 'Vermelho');
 
         setEstadoOnline({
@@ -84,7 +179,7 @@ export const criarSala = async (
     }
 };
 
-// FUNÇÃO: Entrar em sala existente 
+// FUNCAO: Entrar em sala existente 
 export const entrarNaSala = async (
     codigoSala,
     database,
@@ -99,7 +194,7 @@ export const entrarNaSala = async (
     setJogadorAtual
 ) => {
     if (!codigoSala.trim()) {
-        setErroConexao('Digite um código de sala');
+        setErroConexao('Digite um codigo de sala');
         return;
     }
 
@@ -109,19 +204,16 @@ export const entrarNaSala = async (
         const salaData = snap.val();
 
         if (!salaData) {
-            setErroConexao('Sala não encontrada');
+            setErroConexao('Sala nao encontrada');
             return;
         }
 
-        // VERIFICAR SE JÁ TENHO UM ID SALVO PARA ESTA SALA
         const dadosSalvos = recuperarJogadorId(codigoSala);
 
         if (dadosSalvos && salaData.jogadores[dadosSalvos.jogadorId]) {
-            // RECONEXÃO - Já estava nesta sala antes!
             const jogadorId = dadosSalvos.jogadorId;
             const minhaCor = dadosSalvos.cor;
 
-            // Atualizar status de conectado
             const jogadorRef = ref(database, `salas/${codigoSala}/jogadores/${jogadorId}`);
             await set(jogadorRef, {
                 ...salaData.jogadores[jogadorId],
@@ -137,19 +229,15 @@ export const entrarNaSala = async (
             });
             setJogadorOnlineId(jogadorId);
             setModoJogo('online');
-            setMensagem(`Reconectado à sala: ${codigoSala}`);
+            setMensagem(`Reconectado a sala: ${codigoSala}`);
             setMostrarModalOnline(false);
             setErroConexao('');
             setCodigoSala('');
-
-            // Restaurar fase do jogo
             setFaseJogo(salaData.faseJogo || 'configuracao');
             setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
-
             return;
         }
 
-        // NOVA CONEXÃO - Entrar como jogador novo
         const totalJogadores = salaData.jogadores ? Object.keys(salaData.jogadores).length : 0;
 
         if (totalJogadores >= 2) {
@@ -167,7 +255,6 @@ export const entrarNaSala = async (
             ultimaAtualizacao: Date.now()
         });
 
-        // Salvar no localStorage
         salvarJogadorId(codigoSala, jogadorId, 'Azul');
 
         setEstadoOnline({
@@ -178,7 +265,7 @@ export const entrarNaSala = async (
         });
         setJogadorOnlineId(jogadorId);
         setModoJogo('online');
-        setMensagem(`Conectado à sala: ${codigoSala}. Aguardando Jogador Vermelho configurar...`);
+        setMensagem(`Conectado a sala: ${codigoSala}. Aguardando Jogador Vermelho configurar...`);
         setMostrarModalOnline(false);
         setErroConexao('');
         setCodigoSala('');
@@ -190,12 +277,11 @@ export const entrarNaSala = async (
     }
 };
 
-// NOVA FUNÇÃO: Sair da sala e limpar
+// FUNCAO: Sair da sala
 export const sairDaSala = async (database, sala, jogadorId) => {
     if (!sala || !jogadorId) return;
 
     try {
-        // Marcar como desconectado
         const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}`);
         const snap = await get(jogadorRef);
 
@@ -211,7 +297,7 @@ export const sairDaSala = async (database, sala, jogadorId) => {
     }
 };
 
-// NOVA FUNÇÃO: Limpar salas antigas (mais de 24h)
+// FUNCAO: Limpar salas antigas
 export const limparSalasAntigas = async (database) => {
     try {
         const salasRef = ref(database, 'salas');
