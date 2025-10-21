@@ -43,7 +43,7 @@ import {
 } from './game-modes/AIGame';
 
 // Imports do jogo online
-import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro, serializarTabuleiro } from './game-modes/OnlineGame';
+import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro } from './game-modes/OnlineGame';
 
 function App() {
     // ESTADOS DO JOGO
@@ -585,30 +585,27 @@ function App() {
                     setGhostElement
                 );
 
-                // SINCRONIZAR PEÇA NO MODO ONLINE
+                // SINCRONIZAR TABULEIRO NO MODO ONLINE
                 if (modoJogo === 'online' && estadoOnline.sala) {
-                    // Objeto contendo apenas a peça que acabou de ser colocada
-                    const pecaParaSerializar = {
-                        [posicao]: {
-                            numero: pecaSelecionadaConfig,
-                            jogador: jogadorAtual
-                        }
-                    };
-
-                    // Serializa apenas essa peça (para lidar com ícones de Bomba e Bandeira)
-                    const pecaSerializada = serializarTabuleiro(pecaParaSerializar);
-
+                    // Usar useEffect para sincronizar após atualização do estado
                     const sincronizar = async () => {
                         try {
-                            // Importe 'update' para mesclar os dados, e não sobrescrever
-                            const { ref, update } = require('firebase/database');
+                            const { ref, set } = require('firebase/database');
                             const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
 
-                            // Use update para adicionar a nova peça sem apagar as do oponente
-                            await update(tabuleiroRef, pecaSerializada);
-                            console.log('[ONLINE] Peça sincronizada em:', posicao);
+                            // Pegar o tabuleiro atualizado do estado
+                            const tabuleiroAtual = { ...tabuleiro };
+
+                            // Adicionar a peça que acabou de ser colocada
+                            tabuleiroAtual[posicao] = {
+                                numero: pecaSelecionadaConfig,
+                                jogador: jogadorAtual
+                            };
+
+                            await set(tabuleiroRef, tabuleiroAtual);
+                            console.log('Tabuleiro sincronizado:', Object.keys(tabuleiroAtual).length, 'peças');
                         } catch (error) {
-                            console.error('[ONLINE] Erro ao sincronizar peça:', error);
+                            console.error('Erro ao sincronizar tabuleiro:', error);
                         }
                     };
 
@@ -913,7 +910,9 @@ function App() {
             {modoJogo !== 'menu' && (
                 <>
                     <div className="modo-indicador">
-                        Modo: {modoJogo === 'local' ? '2 Jogadores Local' : modoJogo === 'ia' ? 'Contra IA' : 'Online'}
+                        {modoJogo === 'local' ? 'Modo: 2 Jogadores Local' :
+                            modoJogo === 'ia' ? 'Modo: Contra IA' :
+                                `Sala: ${estadoOnline.sala || 'Conectando...'}`}
                     </div>
 
                     {modoJogo === 'ia' && estadoIA.pensando && (
