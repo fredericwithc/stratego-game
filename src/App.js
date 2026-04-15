@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
@@ -101,6 +101,7 @@ function App() {
 
     // Estado: Mensagens de erro de conexão para mostrar ao usuário
     const [erroConexao, setErroConexao] = useState('');
+    const ajusteTurnoAzulRef = useRef(false);
 
     // Estado: peca selecionada no posicionamento
     const [pecaSelecionadaNoTabuleiro, setPecaSelecionadaNoTabuleiro] = useState(null);
@@ -255,7 +256,7 @@ function App() {
     useEffect(() => {
         if (modoJogo !== 'online' || !estadoOnline.sala) return;
 
-        const { onValue, ref } = require('firebase/database');
+        const { onValue, ref, update } = require('firebase/database');
         const salaRef = ref(database, `salas/${estadoOnline.sala}`);
 
         console.log('Iniciando listener Firebase para sala:', estadoOnline.sala);
@@ -321,10 +322,10 @@ function App() {
             // 4. VERIFICAR SE VERMELHO TERMINOU
             if (estadoOnline.minhaCor === 'Azul') {
                 const jogadorVermelho = Object.values(jogadores).find(j => j.cor === 'Vermelho');
+                const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
 
                 if (
-                    jogadorVermelho &&
-                    jogadorVermelho.pronto &&
+                    vermelhoPronto &&
                     salaData.jogadorAtual === 'Azul' &&
                     salaData.faseJogo !== 'jogando'
                 ) {
@@ -333,6 +334,25 @@ function App() {
                     setJogadorAtual('Azul');
                     setJogadorPronto(false);
                     setMensagem('Agora é sua vez! Posicione suas peças no território azul (linhas G-J).');
+                }
+
+                // Autocorreção: se o vermelho já está pronto mas o turno não virou no backend,
+                // o cliente azul corrige a sala para destravar o fluxo.
+                if (
+                    vermelhoPronto &&
+                    salaData.faseJogo !== 'jogando' &&
+                    salaData.jogadorAtual !== 'Azul' &&
+                    !ajusteTurnoAzulRef.current
+                ) {
+                    ajusteTurnoAzulRef.current = true;
+                    update(salaRef, {
+                        faseJogo: 'configuracao',
+                        jogadorAtual: 'Azul'
+                    }).catch((error) => {
+                        console.error('[ONLINE] Falha ao autocorrigir turno do Azul:', error);
+                    }).finally(() => {
+                        ajusteTurnoAzulRef.current = false;
+                    });
                 }
             }
 
