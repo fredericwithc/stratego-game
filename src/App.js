@@ -271,6 +271,11 @@ function App() {
 
             // VERIFICAR SE EU JÁ ESTOU PRONTO NO FIREBASE
             const jogadores = salaData.jogadores || {};
+            const totalConectados = Object.values(jogadores).filter(
+                (jogador) => jogador?.conectado !== false
+            ).length;
+            setAguardandoJogador(totalConectados < 2);
+
             const meuJogador = Object.values(jogadores).find(
                 j => j.cor === estadoOnline.minhaCor
             );
@@ -314,10 +319,15 @@ function App() {
             }
 
             // 4. VERIFICAR SE VERMELHO TERMINOU
-            if (estadoOnline.minhaCor === 'Azul' && faseJogo === 'aguardando') {
+            if (estadoOnline.minhaCor === 'Azul') {
                 const jogadorVermelho = Object.values(jogadores).find(j => j.cor === 'Vermelho');
 
-                if (jogadorVermelho && jogadorVermelho.pronto) {
+                if (
+                    jogadorVermelho &&
+                    jogadorVermelho.pronto &&
+                    salaData.faseJogo === 'configuracao' &&
+                    salaData.jogadorAtual === 'Azul'
+                ) {
                     console.log('Vermelho pronto! Azul pode começar.');
                     setFaseJogo('configuracao');
                     setJogadorAtual('Azul');

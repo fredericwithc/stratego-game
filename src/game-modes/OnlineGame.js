@@ -203,13 +203,15 @@ export const entrarNaSala = async (
     setFaseJogo,
     setJogadorAtual
 ) => {
-    if (!codigoSala.trim()) {
+    const codigo = (codigoSala || '').trim().toUpperCase();
+
+    if (!codigo) {
         setErroConexao('Digite um codigo de sala');
         return;
     }
 
     try {
-        const salaRef = ref(database, `salas/${codigoSala}`);
+        const salaRef = ref(database, `salas/${codigo}`);
         const snap = await get(salaRef);
         const salaData = snap.val();
 
@@ -218,13 +220,13 @@ export const entrarNaSala = async (
             return;
         }
 
-        const dadosSalvos = recuperarJogadorId(codigoSala);
+        const dadosSalvos = recuperarJogadorId(codigo);
 
-        if (dadosSalvos && salaData.jogadores[dadosSalvos.jogadorId]) {
+        if (dadosSalvos && salaData.jogadores?.[dadosSalvos.jogadorId]) {
             const jogadorId = dadosSalvos.jogadorId;
             const minhaCor = dadosSalvos.cor;
 
-            const jogadorRef = ref(database, `salas/${codigoSala}/jogadores/${jogadorId}`);
+            const jogadorRef = ref(database, `salas/${codigo}/jogadores/${jogadorId}`);
             await set(jogadorRef, {
                 ...salaData.jogadores[jogadorId],
                 conectado: true,
@@ -232,14 +234,14 @@ export const entrarNaSala = async (
             });
 
             setEstadoOnline({
-                sala: codigoSala,
+                sala: codigo,
                 conectado: true,
                 jogadorHost: salaData.host === jogadorId,
                 minhaCor: minhaCor
             });
             setJogadorOnlineId(jogadorId);
             setModoJogo('online');
-            setMensagem(`Reconectado a sala: ${codigoSala}`);
+            setMensagem(`Reconectado a sala: ${codigo}`);
             setMostrarModalOnline(false);
             setErroConexao('');
             setCodigoSala('');
@@ -248,15 +250,16 @@ export const entrarNaSala = async (
             return;
         }
 
-        const totalJogadores = salaData.jogadores ? Object.keys(salaData.jogadores).length : 0;
+        const jogadores = Object.values(salaData.jogadores || {});
+        const totalConectados = jogadores.filter((jogador) => jogador?.conectado !== false).length;
 
-        if (totalJogadores >= 2) {
+        if (totalConectados >= 2) {
             setErroConexao('Sala cheia. Use o mesmo navegador para reconectar.');
             return;
         }
 
         const jogadorId = Date.now().toString();
-        const jogadoresRef = ref(database, `salas/${codigoSala}/jogadores/${jogadorId}`);
+        const jogadoresRef = ref(database, `salas/${codigo}/jogadores/${jogadorId}`);
         await set(jogadoresRef, {
             nome: 'Jogador 2',
             cor: 'Azul',
@@ -265,22 +268,22 @@ export const entrarNaSala = async (
             ultimaAtualizacao: Date.now()
         });
 
-        salvarJogadorId(codigoSala, jogadorId, 'Azul');
+        salvarJogadorId(codigo, jogadorId, 'Azul');
 
         setEstadoOnline({
-            sala: codigoSala,
+            sala: codigo,
             conectado: true,
             jogadorHost: false,
             minhaCor: 'Azul'
         });
         setJogadorOnlineId(jogadorId);
         setModoJogo('online');
-        setMensagem(`Conectado a sala: ${codigoSala}. Aguardando Jogador Vermelho configurar...`);
+        setMensagem(`Conectado a sala: ${codigo}.`);
         setMostrarModalOnline(false);
         setErroConexao('');
         setCodigoSala('');
-        setFaseJogo('aguardando');
-        setJogadorAtual('Vermelho');
+        setFaseJogo(salaData.faseJogo || 'configuracao');
+        setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
 
     } catch (error) {
         setErroConexao('Erro ao entrar na sala: ' + error.message);
