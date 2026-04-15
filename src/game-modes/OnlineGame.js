@@ -1,4 +1,4 @@
-import { ref, set, onValue, get, remove } from 'firebase/database';
+import { ref, set, onValue, get, remove, update } from 'firebase/database';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
@@ -93,14 +93,7 @@ export const marcarJogadorPronto = async (
     minhaCor
 ) => {
     try {
-        const { ref, set, get, update } = require('firebase/database');
-        
-        // 1. Marcar como pronto
-        const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}/pronto`);
-        await set(jogadorRef, true);
-        console.log('[ONLINE] Jogador marcado como pronto');
-
-        // 2. MESCLAR tabuleiro (não sobrescrever!)
+        // 1. Ler tabuleiro atual e mesclar minhas peças
         const tabuleiroRef = ref(database, `salas/${sala}/tabuleiro`);
         const snapTabuleiro = await get(tabuleiroRef);
         const tabuleiroFirebase = snapTabuleiro.val() || {};
@@ -110,26 +103,29 @@ export const marcarJogadorPronto = async (
         
         // Mesclar: manter peças do Firebase + adicionar minhas peças
         const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecas };
-        
-        await set(tabuleiroRef, tabuleiroMesclado);
-        console.log('[ONLINE] Tabuleiro mesclado:', Object.keys(tabuleiroMesclado).length, 'pecas');
 
-        // 3. Atualizar fase do jogo
+        // 2. Atualizar tudo de uma vez para evitar estado intermediário inconsistente
+        const salaRef = ref(database, `salas/${sala}`);
+        const atualizacao = {
+            [`jogadores/${jogadorId}/pronto`]: true,
+            tabuleiro: tabuleiroMesclado
+        };
+
         if (minhaCor === 'Vermelho') {
-            const faseRef = ref(database, `salas/${sala}/faseJogo`);
-            await set(faseRef, 'configuracao');
-
-            const jogadorAtualRef = ref(database, `salas/${sala}/jogadorAtual`);
-            await set(jogadorAtualRef, 'Azul');
-            console.log('[ONLINE] Vermelho pronto - vez do Azul');
+            atualizacao.faseJogo = 'configuracao';
+            atualizacao.jogadorAtual = 'Azul';
         } else if (minhaCor === 'Azul') {
-            const faseRef = ref(database, `salas/${sala}/faseJogo`);
-            await set(faseRef, 'jogando');
-
-            const jogadorAtualRef = ref(database, `salas/${sala}/jogadorAtual`);
-            await set(jogadorAtualRef, 'Vermelho');
-            console.log('[ONLINE] Azul pronto - jogo iniciando');
+            atualizacao.faseJogo = 'jogando';
+            atualizacao.jogadorAtual = 'Vermelho';
         }
+
+        await update(salaRef, atualizacao);
+        console.log('[ONLINE] Estado atualizado:', {
+            minhaCor,
+            faseJogo: atualizacao.faseJogo,
+            jogadorAtual: atualizacao.jogadorAtual,
+            pecas: Object.keys(tabuleiroMesclado).length
+        });
 
         return true;
     } catch (error) {
@@ -282,8 +278,17 @@ export const entrarNaSala = async (
         setMostrarModalOnline(false);
         setErroConexao('');
         setCodigoSala('');
-        setFaseJogo(salaData.faseJogo || 'configuracao');
-        setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
+
+        const jogadorVermelho = Object.values(salaData.jogadores || {}).find((j) => j?.cor === 'Vermelho');
+        const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
+
+        if (vermelhoPronto && salaData.faseJogo !== 'jogando') {
+            setFaseJogo('configuracao');
+            setJogadorAtual('Azul');
+        } else {
+            setFaseJogo(salaData.faseJogo || 'configuracao');
+            setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
+        }
 
     } catch (error) {
         setErroConexao('Erro ao entrar na sala: ' + error.message);

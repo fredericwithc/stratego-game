@@ -325,8 +325,8 @@ function App() {
                 if (
                     jogadorVermelho &&
                     jogadorVermelho.pronto &&
-                    salaData.faseJogo === 'configuracao' &&
-                    salaData.jogadorAtual === 'Azul'
+                    salaData.jogadorAtual === 'Azul' &&
+                    salaData.faseJogo !== 'jogando'
                 ) {
                     console.log('Vermelho pronto! Azul pode começar.');
                     setFaseJogo('configuracao');
