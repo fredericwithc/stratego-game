@@ -54,6 +54,9 @@ function App() {
     // Estado: Desativar botão jogador pronto Online
     const [jogadorPronto, setJogadorPronto] = useState(false);
 
+    // Online: após enviar a configuração com sucesso, não permitir reenviar até o jogo iniciar
+    const [envieiConfigOnline, setEnvieiConfigOnline] = useState(false);
+
     // Estado: Drag and Drop na fase de colocação de peças
     const [draggedPiece, setDraggedPiece] = useState(null);
     const [dragSourcePosition, setDragSourcePosition] = useState(null);
@@ -83,6 +86,12 @@ function App() {
         jogadorHost: false,
         minhaCor: null
     });
+
+    useEffect(() => {
+        // Ao trocar de sala/modo online, resetar flags locais de "pronto/envio"
+        setEnvieiConfigOnline(false);
+        setJogadorPronto(false);
+    }, [modoJogo, estadoOnline.sala]);
 
     // Estado: criar a sala para modo online
     const [telaSalaCriada, setTelaSalaCriada] = useState(false);
@@ -270,15 +279,14 @@ function App() {
 
             console.log('Dados recebidos do Firebase:', salaData);
 
+            const faseSala = salaData.faseJogo || 'configuracao';
+
             // VERIFICAR SE EU JÁ ESTOU PRONTO NO FIREBASE
             const jogadores = salaData.jogadores || {};
             const totalConectados = Object.values(jogadores).filter(
                 (jogador) => jogador?.conectado !== false
             ).length;
             setAguardandoJogador(totalConectados < 2);
-
-            const meuJogador = jogadorOnlineId ? jogadores?.[jogadorOnlineId] : null;
-            const euEstouPronto = Boolean(meuJogador?.pronto);
 
             // 0. REPARO DEFENSIVO DE TURNO (configuração online)
             // Se o host (Vermelho) já está pronto, o próximo passo SEMPRE é o Azul configurar.
@@ -287,7 +295,7 @@ function App() {
             const hostPronto = hostId ? Boolean(jogadores?.[hostId]?.pronto) : false;
             if (
                 hostPronto &&
-                salaData.faseJogo === 'configuracao' &&
+                faseSala === 'configuracao' &&
                 salaData.jogadorAtual !== 'Azul' &&
                 !ajusteTurnoAzulRef.current
             ) {
@@ -308,7 +316,7 @@ function App() {
 
                 setTabuleiro(prevTabuleiro => {
                     // Se estou configurando, ADICIONAR minhas peças ao tabuleiro do Firebase
-                    if (faseJogo === 'configuracao' && estadoOnline.minhaCor) {
+                    if (faseSala === 'configuracao' && estadoOnline.minhaCor) {
                         const novoTabuleiro = { ...tabuleiroDesserializado };
 
                         // Adicionar minhas peças locais que ainda não foram sincronizadas
@@ -344,7 +352,7 @@ function App() {
                 if (
                     vermelhoPronto &&
                     salaData.jogadorAtual === 'Azul' &&
-                    salaData.faseJogo !== 'jogando'
+                    faseSala !== 'jogando'
                 ) {
                     console.log('Vermelho pronto! Azul pode começar.');
                     setFaseJogo('configuracao');
@@ -352,39 +360,16 @@ function App() {
                     setJogadorPronto(false);
                     setMensagem('Agora é sua vez! Posicione suas peças no território azul (linhas G-J).');
                 }
-
-                // Autocorreção: se o vermelho já está pronto mas o turno não virou no backend,
-                // o cliente azul corrige a sala para destravar o fluxo.
-                if (
-                    vermelhoPronto &&
-                    salaData.faseJogo !== 'jogando' &&
-                    salaData.jogadorAtual !== 'Azul' &&
-                    !ajusteTurnoAzulRef.current
-                ) {
-                    ajusteTurnoAzulRef.current = true;
-                    update(salaRef, {
-                        faseJogo: 'configuracao',
-                        jogadorAtual: 'Azul'
-                    }).catch((error) => {
-                        console.error('[ONLINE] Falha ao autocorrigir turno do Azul:', error);
-                    }).finally(() => {
-                        ajusteTurnoAzulRef.current = false;
-                    });
-                }
             }
 
             // 5. VERIFICAR SE JOGO INICIOU
-            if (salaData.faseJogo === 'jogando' && faseJogo !== 'jogando') {
+            if (faseSala === 'jogando') {
                 console.log('Jogo iniciando!');
                 setFaseJogo('jogando');
                 setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
                 setJogadorPronto(false);
+                setEnvieiConfigOnline(false);
                 setMensagem('Configuração completa! Que comece a batalha!');
-            }
-
-            // 6. MANTER BOTÃO DESABILITADO SE EU JÁ CLIQUEI
-            if (euEstouPronto && salaData.faseJogo === 'configuracao') {
-                setJogadorPronto(true);
             }
         });
 
@@ -423,6 +408,9 @@ function App() {
         setDraggedPiece(null);
         setDragSourcePosition(null);
         setIsDragging(false);
+
+        setJogadorPronto(false);
+        setEnvieiConfigOnline(false);
     };
 
     // Wrapper da função registrarCaptura
@@ -1019,9 +1007,6 @@ function App() {
                                         return;
                                     }
 
-                                    // Marcar que clicou
-                                    setJogadorPronto(true);
-
                                     // MODO ONLINE: Sincronizar com Firebase
                                     if (modoJogo === 'online' && estadoOnline.sala && jogadorOnlineId) {
                                         try {
@@ -1038,12 +1023,17 @@ function App() {
                                             } else {
                                                 setMensagem('Aguardando o jogo iniciar...');
                                             }
+
+                                            setEnvieiConfigOnline(true);
                                         } catch (error) {
                                             console.error('Erro ao sincronizar:', error);
                                             setMensagem('Erro ao sincronizar com o servidor.');
-                                            setJogadorPronto(false);
+                                            setEnvieiConfigOnline(false);
                                         }
                                     } else {
+                                        // Marcar que clicou (local/IA)
+                                        setJogadorPronto(true);
+
                                         // MODO LOCAL/IA (código original)
                                         if (jogadorAtual === "Vermelho") {
                                             setJogadorAtual("Azul");
@@ -1068,10 +1058,20 @@ function App() {
                                         }
                                     }
                                 }}
-                                className={`finish-button ${(!validarConfiguracaoCompleta(jogadorAtual, pecasDisponiveis) || jogadorPronto) ? 'disabled' : ''}`}
-                                disabled={!validarConfiguracaoCompleta(jogadorAtual, pecasDisponiveis) || jogadorPronto}
+                                className={`finish-button ${(
+                                    !validarConfiguracaoCompleta(jogadorAtual, pecasDisponiveis) ||
+                                    (modoJogo === 'online'
+                                        ? (envieiConfigOnline || estadoOnline.minhaCor !== jogadorAtual)
+                                        : jogadorPronto)
+                                ) ? 'disabled' : ''}`}
+                                disabled={
+                                    !validarConfiguracaoCompleta(jogadorAtual, pecasDisponiveis) ||
+                                    (modoJogo === 'online'
+                                        ? (envieiConfigOnline || estadoOnline.minhaCor !== jogadorAtual)
+                                        : jogadorPronto)
+                                }
                             >
-                                {jogadorPronto
+                                {(modoJogo === 'online' ? envieiConfigOnline : jogadorPronto)
                                     ? 'Aguardando...'
                                     : validarConfiguracaoCompleta(jogadorAtual, pecasDisponiveis)
                                         ? (jogadorAtual === "Vermelho" ? 'Pronto! Passar para Azul' : 'Pronto! Iniciar Jogo')

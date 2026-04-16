@@ -1,4 +1,4 @@
-import { ref, set, onValue, get, remove, update } from 'firebase/database';
+import { ref, set, get, remove, update } from 'firebase/database';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
@@ -125,16 +125,17 @@ export const marcarJogadorPronto = async (
         // 2. Atualizar tudo de uma vez para evitar estado intermediário inconsistente
         const salaRef = ref(database, `salas/${salaId}`);
         const atualizacao = {
-            [`jogadores/${playerId}/pronto`]: true,
             tabuleiro: tabuleiroMesclado
         };
 
         if (corEfetiva === 'Vermelho') {
             atualizacao.faseJogo = 'configuracao';
             atualizacao.jogadorAtual = 'Azul';
+            atualizacao[`jogadores/${playerId}/pronto`] = true;
         } else if (corEfetiva === 'Azul') {
             atualizacao.faseJogo = 'jogando';
             atualizacao.jogadorAtual = 'Vermelho';
+            atualizacao[`jogadores/${playerId}/pronto`] = true;
         }
 
         await update(salaRef, atualizacao);
@@ -297,10 +298,14 @@ export const entrarNaSala = async (
         setErroConexao('');
         setCodigoSala('');
 
-        const jogadorVermelho = Object.values(salaData.jogadores || {}).find((j) => j?.cor === 'Vermelho');
-        const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
+        const hostId = salaData.host ? String(salaData.host) : '';
+        const hostPronto = hostId ? Boolean(salaData.jogadores?.[hostId]?.pronto) : false;
 
-        if (vermelhoPronto && salaData.faseJogo !== 'jogando') {
+        // A virada de turno na configuração online é `jogadorAtual`, não necessariamente `pronto`.
+        if (salaData.jogadorAtual === 'Azul' && salaData.faseJogo !== 'jogando') {
+            setFaseJogo('configuracao');
+            setJogadorAtual('Azul');
+        } else if (hostPronto && salaData.faseJogo !== 'jogando') {
             setFaseJogo('configuracao');
             setJogadorAtual('Azul');
         } else {
