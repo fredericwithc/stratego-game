@@ -93,6 +93,13 @@ export const marcarJogadorPronto = async (
     minhaCor
 ) => {
     try {
+        // Determinar a cor do jogador a partir do Firebase (fonte de verdade).
+        // Isso evita bugs quando `minhaCor` no React ainda não está setada/está desatualizada.
+        const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}`);
+        const snapJogador = await get(jogadorRef);
+        const corFirebase = snapJogador.val()?.cor;
+        const corEfetiva = corFirebase || minhaCor;
+
         // 1. Ler tabuleiro atual e mesclar minhas peças
         const tabuleiroRef = ref(database, `salas/${sala}/tabuleiro`);
         const snapTabuleiro = await get(tabuleiroRef);
@@ -111,17 +118,17 @@ export const marcarJogadorPronto = async (
             tabuleiro: tabuleiroMesclado
         };
 
-        if (minhaCor === 'Vermelho') {
+        if (corEfetiva === 'Vermelho') {
             atualizacao.faseJogo = 'configuracao';
             atualizacao.jogadorAtual = 'Azul';
-        } else if (minhaCor === 'Azul') {
+        } else if (corEfetiva === 'Azul') {
             atualizacao.faseJogo = 'jogando';
             atualizacao.jogadorAtual = 'Vermelho';
         }
 
         await update(salaRef, atualizacao);
         console.log('[ONLINE] Estado atualizado:', {
-            minhaCor,
+            minhaCor: corEfetiva,
             faseJogo: atualizacao.faseJogo,
             jogadorAtual: atualizacao.jogadorAtual,
             pecas: Object.keys(tabuleiroMesclado).length
