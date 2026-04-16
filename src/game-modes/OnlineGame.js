@@ -1,4 +1,4 @@
-import { ref, set, get, remove, update } from 'firebase/database';
+import { ref, set, get, remove, runTransaction } from 'firebase/database';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
@@ -93,7 +93,6 @@ export const marcarJogadorPronto = async (
     minhaCor
 ) => {
     try {
-        // Garantir tipos para evitar erros internos do Firebase (ex: path.split em valor não-string)
         const salaId = String(sala || '');
         const playerId = String(jogadorId || '');
 
@@ -101,51 +100,46 @@ export const marcarJogadorPronto = async (
             throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
         }
 
-        // Determinar "quem é quem" usando o host como fonte de verdade.
-        // Isso é mais robusto do que depender de `minhaCor`/`cor` (que pode vir nula em reconexões).
-        const salaRefLeitura = ref(database, `salas/${salaId}`);
-        const snapSala = await get(salaRefLeitura);
-        const salaData = snapSala.val() || {};
-
-        const hostId = salaData?.host ? String(salaData.host) : '';
-        const isVermelho = hostId && playerId === hostId;
-        const corEfetiva = isVermelho ? 'Vermelho' : 'Azul';
-
-        // 1. Ler tabuleiro atual e mesclar minhas peças
-        const tabuleiroRef = ref(database, `salas/${salaId}/tabuleiro`);
-        const snapTabuleiro = await get(tabuleiroRef);
-        const tabuleiroFirebase = snapTabuleiro.val() || {};
-        
-        // Serializar minhas peças
-        const minhasPecas = serializarTabuleiro(tabuleiro);
-        
-        // Mesclar: manter peças do Firebase + adicionar minhas peças
-        const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecas };
-
-        // 2. Atualizar tudo de uma vez para evitar estado intermediário inconsistente
+        const minhasPecasSerial = serializarTabuleiro(tabuleiro);
         const salaRef = ref(database, `salas/${salaId}`);
-        const atualizacao = {
-            tabuleiro: tabuleiroMesclado
-        };
 
-        if (corEfetiva === 'Vermelho') {
-            atualizacao.faseJogo = 'configuracao';
-            atualizacao.jogadorAtual = 'Azul';
-            atualizacao[`jogadores/${playerId}/pronto`] = true;
-        } else if (corEfetiva === 'Azul') {
-            atualizacao.faseJogo = 'jogando';
-            atualizacao.jogadorAtual = 'Vermelho';
-            atualizacao[`jogadores/${playerId}/pronto`] = true;
-        }
+        // Transação: lê o estado atual da sala, mescla tabuleiro e aplica virada de turno de forma atômica.
+        // Evita condições de corrida entre dois clientes e falhas parciais do update().
+        await runTransaction(salaRef, (current) => {
+            if (current == null) {
+                return undefined;
+            }
 
-        await update(salaRef, atualizacao);
-        console.log('[ONLINE] Estado atualizado:', {
-            minhaCor: corEfetiva,
-            faseJogo: atualizacao.faseJogo,
-            jogadorAtual: atualizacao.jogadorAtual,
-            pecas: Object.keys(tabuleiroMesclado).length
+            const c = typeof current === 'object' ? { ...current } : {};
+            const tabuleiroFirebase =
+                c.tabuleiro && typeof c.tabuleiro === 'object' ? c.tabuleiro : {};
+            const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecasSerial };
+
+            const hostId = c.host != null ? String(c.host) : '';
+            const isVermelho = Boolean(hostId && playerId === hostId);
+
+            const jogadores = { ...(c.jogadores || {}) };
+            const anterior = jogadores[playerId] || {};
+            jogadores[playerId] = { ...anterior, pronto: true };
+
+            const next = {
+                ...c,
+                tabuleiro: tabuleiroMesclado,
+                jogadores
+            };
+
+            if (isVermelho) {
+                next.faseJogo = 'configuracao';
+                next.jogadorAtual = 'Azul';
+            } else {
+                next.faseJogo = 'jogando';
+                next.jogadorAtual = 'Vermelho';
+            }
+
+            return next;
         });
 
+        console.log('[ONLINE] marcarJogadorPronto: transação concluída', { salaId, playerId });
         return true;
     } catch (error) {
         console.error('[ONLINE] Erro ao marcar pronto:', error);

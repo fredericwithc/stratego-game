@@ -43,7 +43,7 @@ import {
 } from './game-modes/AIGame';
 
 // Imports do jogo online
-import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro } from './game-modes/OnlineGame';
+import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro, serializarTabuleiro } from './game-modes/OnlineGame';
 
 function App() {
     // ESTADOS DO JOGO
@@ -271,6 +271,7 @@ function App() {
         console.log('Iniciando listener Firebase para sala:', estadoOnline.sala);
 
         const unsubscribe = onValue(salaRef, (snapshot) => {
+            try {
             const salaData = snapshot.val();
             if (!salaData) {
                 console.warn('Sala não encontrada no Firebase');
@@ -370,6 +371,9 @@ function App() {
                 setJogadorPronto(false);
                 setEnvieiConfigOnline(false);
                 setMensagem('Configuração completa! Que comece a batalha!');
+            }
+            } catch (e) {
+                console.error('[ONLINE] Erro no listener Firebase:', e);
             }
         });
 
@@ -634,7 +638,9 @@ function App() {
                                 jogador: jogadorAtual
                             };
 
-                            await set(tabuleiroRef, tabuleiroAtual);
+                            // Só gravar JSON válido (sem elementos React). Antes isso podia quebrar o SDK / sync.
+                            const tabuleiroSerializado = serializarTabuleiro(tabuleiroAtual);
+                            await set(tabuleiroRef, tabuleiroSerializado);
                             console.log('Tabuleiro sincronizado:', Object.keys(tabuleiroAtual).length, 'peças');
                         } catch (error) {
                             console.error('Erro ao sincronizar tabuleiro:', error);
