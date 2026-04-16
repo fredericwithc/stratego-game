@@ -93,15 +93,23 @@ export const marcarJogadorPronto = async (
     minhaCor
 ) => {
     try {
+        // Garantir tipos para evitar erros internos do Firebase (ex: path.split em valor não-string)
+        const salaId = String(sala || '');
+        const playerId = String(jogadorId || '');
+
+        if (!salaId || !playerId) {
+            throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
+        }
+
         // Determinar a cor do jogador a partir do Firebase (fonte de verdade).
         // Isso evita bugs quando `minhaCor` no React ainda não está setada/está desatualizada.
-        const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}`);
+        const jogadorRef = ref(database, `salas/${salaId}/jogadores/${playerId}`);
         const snapJogador = await get(jogadorRef);
         const corFirebase = snapJogador.val()?.cor;
         const corEfetiva = corFirebase || minhaCor;
 
         // 1. Ler tabuleiro atual e mesclar minhas peças
-        const tabuleiroRef = ref(database, `salas/${sala}/tabuleiro`);
+        const tabuleiroRef = ref(database, `salas/${salaId}/tabuleiro`);
         const snapTabuleiro = await get(tabuleiroRef);
         const tabuleiroFirebase = snapTabuleiro.val() || {};
         
@@ -112,9 +120,9 @@ export const marcarJogadorPronto = async (
         const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecas };
 
         // 2. Atualizar tudo de uma vez para evitar estado intermediário inconsistente
-        const salaRef = ref(database, `salas/${sala}`);
+        const salaRef = ref(database, `salas/${salaId}`);
         const atualizacao = {
-            [`jogadores/${jogadorId}/pronto`]: true,
+            [`jogadores/${playerId}/pronto`]: true,
             tabuleiro: tabuleiroMesclado
         };
 
