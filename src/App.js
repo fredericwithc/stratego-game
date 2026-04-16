@@ -280,6 +280,27 @@ function App() {
             const meuJogador = jogadorOnlineId ? jogadores?.[jogadorOnlineId] : null;
             const euEstouPronto = Boolean(meuJogador?.pronto);
 
+            // 0. REPARO DEFENSIVO DE TURNO (configuração online)
+            // Se o host (Vermelho) já está pronto, o próximo passo SEMPRE é o Azul configurar.
+            // Isso evita travas quando o clique "Pronto" não conseguir gravar `jogadorAtual`.
+            const hostId = salaData.host ? String(salaData.host) : '';
+            const hostPronto = hostId ? Boolean(jogadores?.[hostId]?.pronto) : false;
+            if (
+                hostPronto &&
+                salaData.faseJogo === 'configuracao' &&
+                salaData.jogadorAtual !== 'Azul' &&
+                !ajusteTurnoAzulRef.current
+            ) {
+                ajusteTurnoAzulRef.current = true;
+                update(salaRef, { jogadorAtual: 'Azul' })
+                    .catch((error) => {
+                        console.error('[ONLINE] Falha ao reparar jogadorAtual para Azul:', error);
+                    })
+                    .finally(() => {
+                        ajusteTurnoAzulRef.current = false;
+                    });
+            }
+
             // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO
             if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
                 console.log('Sincronizando tabuleiro:', Object.keys(salaData.tabuleiro).length, 'peças');
@@ -317,7 +338,6 @@ function App() {
 
             // 4. VERIFICAR SE VERMELHO TERMINOU
             if (estadoOnline.minhaCor === 'Azul') {
-                const hostId = salaData.host;
                 const jogadorVermelho = hostId ? jogadores?.[hostId] : Object.values(jogadores).find(j => j?.cor === 'Vermelho' && j?.conectado !== false);
                 const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
 
