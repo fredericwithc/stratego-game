@@ -101,12 +101,15 @@ export const marcarJogadorPronto = async (
             throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
         }
 
-        // Determinar a cor do jogador a partir do Firebase (fonte de verdade).
-        // Isso evita bugs quando `minhaCor` no React ainda não está setada/está desatualizada.
-        const jogadorRef = ref(database, `salas/${salaId}/jogadores/${playerId}`);
-        const snapJogador = await get(jogadorRef);
-        const corFirebase = snapJogador.val()?.cor;
-        const corEfetiva = corFirebase || minhaCor;
+        // Determinar "quem é quem" usando o host como fonte de verdade.
+        // Isso é mais robusto do que depender de `minhaCor`/`cor` (que pode vir nula em reconexões).
+        const salaRefLeitura = ref(database, `salas/${salaId}`);
+        const snapSala = await get(salaRefLeitura);
+        const salaData = snapSala.val() || {};
+
+        const hostId = salaData?.host ? String(salaData.host) : '';
+        const isVermelho = hostId && playerId === hostId;
+        const corEfetiva = isVermelho ? 'Vermelho' : 'Azul';
 
         // 1. Ler tabuleiro atual e mesclar minhas peças
         const tabuleiroRef = ref(database, `salas/${salaId}/tabuleiro`);
