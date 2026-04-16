@@ -277,10 +277,8 @@ function App() {
             ).length;
             setAguardandoJogador(totalConectados < 2);
 
-            const meuJogador = Object.values(jogadores).find(
-                j => j.cor === estadoOnline.minhaCor
-            );
-            const euEstouPronto = meuJogador && meuJogador.pronto;
+            const meuJogador = jogadorOnlineId ? jogadores?.[jogadorOnlineId] : null;
+            const euEstouPronto = Boolean(meuJogador?.pronto);
 
             // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO
             if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
@@ -308,20 +306,19 @@ function App() {
             }
 
             // 2. SINCRONIZAR FASE DO JOGO
-            if (salaData.faseJogo && salaData.faseJogo !== faseJogo) {
-                console.log(`Mudando fase: ${faseJogo} → ${salaData.faseJogo}`);
+            if (salaData.faseJogo) {
                 setFaseJogo(salaData.faseJogo);
             }
 
             // 3. SINCRONIZAR JOGADOR ATUAL
-            if (salaData.jogadorAtual && salaData.jogadorAtual !== jogadorAtual) {
-                console.log(`Mudando jogador: ${jogadorAtual} → ${salaData.jogadorAtual}`);
+            if (salaData.jogadorAtual) {
                 setJogadorAtual(salaData.jogadorAtual);
             }
 
             // 4. VERIFICAR SE VERMELHO TERMINOU
             if (estadoOnline.minhaCor === 'Azul') {
-                const jogadorVermelho = Object.values(jogadores).find(j => j.cor === 'Vermelho');
+                const hostId = salaData.host;
+                const jogadorVermelho = hostId ? jogadores?.[hostId] : Object.values(jogadores).find(j => j?.cor === 'Vermelho' && j?.conectado !== false);
                 const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
 
                 if (
@@ -366,11 +363,8 @@ function App() {
             }
 
             // 6. MANTER BOTÃO DESABILITADO SE EU JÁ CLIQUEI
-            if (euEstouPronto && faseJogo === 'configuracao') {
-                if (!jogadorPronto) {
-                    console.log('Sincronizando estado do botão - já estou pronto no Firebase');
-                    setJogadorPronto(true);
-                }
+            if (euEstouPronto && salaData.faseJogo === 'configuracao') {
+                setJogadorPronto(true);
             }
         });
 
@@ -378,7 +372,7 @@ function App() {
             console.log('Removendo listener Firebase');
             unsubscribe();
         };
-    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor, faseJogo, jogadorPronto]);
+    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor, jogadorOnlineId]);
 
     // FUNÇÕES DO JOGO
 
