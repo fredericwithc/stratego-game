@@ -45,7 +45,7 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 2. No **SQL Editor**, execute o arquivo [`supabase/schema.sql`](supabase/schema.sql) **inteiro** (já inclui Realtime na tabela `rooms`).
 3. **Não** use **Database → Replication** (isso é para réplicas/read replicas pagas). Para conferir Realtime: **Database → Publications** → abra `supabase_realtime` e veja se `rooms` está listada. Alternativa: ícone **Realtime** na barra lateral do projeto.
 4. Copie `.env.example` para `.env.local` e preencha `REACT_APP_SUPABASE_URL` e `REACT_APP_SUPABASE_ANON_KEY` (Project Settings → API).
-5. Rode `npm start` (local) ou `npm run build` + `npm run deploy` (GitHub Pages) com as variáveis definidas antes do build.
+5. Rode `npm start` (local) ou `npm run build` + `npm run deploy` (GitHub Pages). **Importante:** o `.env.local` precisa existir **antes** do `npm run build` — o Create React App grava as variáveis no JS na hora do build. Sem isso, o site publicado abre em branco.
 
 ## Learn More
 

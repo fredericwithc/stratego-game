@@ -270,7 +270,7 @@ function App() {
 
     // EFEITO: Sincronizar sala online via Supabase Realtime
     useEffect(() => {
-        if (modoJogo !== 'online' || !estadoOnline.sala) return;
+        if (modoJogo !== 'online' || !estadoOnline.sala || !supabase) return;
 
         const salaId = estadoOnline.sala;
         const minhaCor = estadoOnline.minhaCor;

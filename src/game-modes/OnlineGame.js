@@ -1,7 +1,10 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../supabase';
+import { supabase, supabaseConfigured } from '../supabase';
+
+const ERRO_SUPABASE_NAO_CONFIGURADO =
+    'Jogo online indisponível: rode npm run build com .env.local preenchido e faça deploy de novo.';
 
 // Converte linha Postgres (snake_case) para o formato usado na UI
 export const rowToSalaData = (row) => {
@@ -99,7 +102,7 @@ const recuperarJogadorId = (sala) => {
 // FUNCAO: Atualizar tabuleiro na sala (colocação de peça durante configuração)
 export const atualizarTabuleiroOnline = async (salaId, tabuleiro) => {
     const id = String(salaId || '');
-    if (!id) return;
+    if (!id || !supabase) return;
 
     const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
     const { error } = await supabase
@@ -120,6 +123,9 @@ export const marcarJogadorPronto = async (sala, jogadorId, tabuleiro) => {
 
     if (!salaId || !playerId) {
         throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
+    }
+    if (!supabase) {
+        throw new Error(ERRO_SUPABASE_NAO_CONFIGURADO);
     }
 
     const tabuleiroPatch = serializarTabuleiro(tabuleiro);
@@ -149,6 +155,11 @@ export const criarSala = async (
     setErroConexao
 ) => {
     try {
+        if (!supabaseConfigured) {
+            setErroConexao(ERRO_SUPABASE_NAO_CONFIGURADO);
+            return false;
+        }
+
         const codigo = gerarCodigoSala();
         const jogadorId = Date.now().toString();
 
@@ -213,6 +224,11 @@ export const entrarNaSala = async (
     }
 
     try {
+        if (!supabaseConfigured) {
+            setErroConexao(ERRO_SUPABASE_NAO_CONFIGURADO);
+            return false;
+        }
+
         const { data: row, error: fetchError } = await supabase
             .from('rooms')
             .select('*')
@@ -316,7 +332,7 @@ export const entrarNaSala = async (
 
 // FUNCAO: Sair da sala
 export const sairDaSala = async (sala, jogadorId) => {
-    if (!sala || !jogadorId) return;
+    if (!sala || !jogadorId || !supabase) return;
 
     try {
         const { data: row, error: fetchError } = await supabase
@@ -342,6 +358,8 @@ export const sairDaSala = async (sala, jogadorId) => {
 
 // FUNCAO: Limpar salas antigas
 export const limparSalasAntigas = async () => {
+    if (!supabase) return;
+
     try {
         const umDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { error } = await supabase
