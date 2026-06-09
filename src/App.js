@@ -34,7 +34,7 @@ import {
 } from './utils/configUtils';
 import { getCellStyle } from './utils/styleUtils';
 import { getPeca } from './utils/getPieceDisplay';
-import { registrarCaptura, executarCombate } from './utils/gameLogic';
+import { executarCombate } from './utils/gameLogic';
 
 // Imports da IA
 import {
@@ -56,6 +56,7 @@ import {
     sincronizarTurnoOnline,
     iniciarCombateOnline,
     resolverCombateOnline,
+    desserializarPecasCapturadas,
     COMBATE_REVEAL_MS
 } from './game-modes/OnlineGame';
 
@@ -171,6 +172,7 @@ function App() {
         Vermelho: [],
         Azul: []
     });
+    const pecasCapturadasRef = useRef({ Vermelho: [], Azul: [] });
 
     // Estado: Qual jogador está jogando (1 ou 2)
     const [jogadorAtual, setJogadorAtual] = useState("Vermelho");
@@ -366,6 +368,12 @@ function App() {
                     if (faseSala === 'jogando' && salaData.tabuleiro) {
                         tabuleiroAtualizado = desserializarTabuleiro(salaData.tabuleiro);
                         setTabuleiro(tabuleiroAtualizado);
+
+                        if (salaData.pecasCapturadas) {
+                            const capturas = desserializarPecasCapturadas(salaData.pecasCapturadas);
+                            pecasCapturadasRef.current = capturas;
+                            setPecasCapturadas(capturas);
+                        }
                     } else if (faseSala === 'configuracao') {
                         setTabuleiro((prevTabuleiro) => {
                             tabuleiroAtualizado = mesclarTabuleiroConfigOnline(
@@ -476,7 +484,9 @@ function App() {
             "Azul": { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 }
         });
         setPecaSelecionadaConfig(null);
-        setPecasCapturadas({ Vermelho: [], Azul: [] });
+        const capturasVazias = { Vermelho: [], Azul: [] };
+        setPecasCapturadas(capturasVazias);
+        pecasCapturadasRef.current = capturasVazias;
 
         setMovimentoIAEmAndamento(false);
         setUltimoMovimento(null);
@@ -497,7 +507,10 @@ function App() {
 
     // Wrapper da função registrarCaptura
     const registrarCapturaWrapper = (pecaCapturada, jogadorCapturador) => {
-        registrarCaptura(pecaCapturada, jogadorCapturador, pecasCapturadas, setPecasCapturadas);
+        const novas = { ...pecasCapturadasRef.current };
+        novas[jogadorCapturador] = [...novas[jogadorCapturador], pecaCapturada];
+        pecasCapturadasRef.current = novas;
+        setPecasCapturadas(novas);
     };
 
     const limparRevelacaoCombate = useCallback(() => {
@@ -519,7 +532,10 @@ function App() {
                 estadoOnline.sala,
                 novoTabuleiro,
                 proximoJogador,
-                extra.estado ? { estado: extra.estado } : {}
+                {
+                    ...(extra.estado ? { estado: extra.estado } : {}),
+                    pecasCapturadas: pecasCapturadasRef.current
+                }
             );
             if (!extra.jogoTerminado && proximoJogador !== estadoOnline.minhaCor) {
                 setMensagem(`Aguardando jogador ${proximoJogador}...`);
@@ -552,7 +568,10 @@ function App() {
             estadoOnline.sala,
             novoTabuleiro,
             proximoJogador,
-            extra.estado ? { estado: extra.estado } : {}
+            {
+                ...(extra.estado ? { estado: extra.estado } : {}),
+                pecasCapturadas: pecasCapturadasRef.current
+            }
         ).then(() => {
             if (!extra.jogoTerminado && proximoJogador !== estadoOnline.minhaCor) {
                 setMensagem(`Aguardando jogador ${proximoJogador}...`);

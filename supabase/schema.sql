@@ -11,11 +11,13 @@ create table if not exists public.rooms (
   tabuleiro jsonb not null default '{}'::jsonb,
   jogadores jsonb not null default '{}'::jsonb,
   combate jsonb,
+  pecas_capturadas jsonb not null default '{"Vermelho":[],"Azul":[]}'::jsonb,
   criada_em timestamptz not null default now()
 );
 
--- Se a tabela já existir sem a coluna combate, rode também:
+-- Se a tabela já existir, rode também:
 -- alter table public.rooms add column if not exists combate jsonb;
+-- alter table public.rooms add column if not exists pecas_capturadas jsonb not null default '{"Vermelho":[],"Azul":[]}'::jsonb;
 
 alter table public.rooms enable row level security;
 

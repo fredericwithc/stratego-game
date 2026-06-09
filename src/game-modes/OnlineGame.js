@@ -17,6 +17,7 @@ export const rowToSalaData = (row) => {
         tabuleiro: row.tabuleiro || {},
         jogadores: row.jogadores || {},
         combate: row.combate || null,
+        pecasCapturadas: row.pecas_capturadas || { Vermelho: [], Azul: [] },
         criadaEm: row.criada_em ? new Date(row.criada_em).getTime() : Date.now()
     };
 };
@@ -74,6 +75,50 @@ export const desserializarTabuleiro = (tabuleiroSerializado) => {
     });
 
     return tabuleiro;
+};
+
+const serializarNumeroPeca = (numero) => {
+    if (React.isValidElement(numero)) {
+        if (numero.props?.icon?.iconName === 'bomb') return 'BOMBA';
+        if (numero.props?.icon?.iconName === 'flag') return 'BANDEIRA';
+    }
+    return numero;
+};
+
+const desserializarNumeroPeca = (numero) => {
+    if (numero === 'BOMBA') {
+        return <FontAwesomeIcon icon={faBomb} className="bomb-icon" />;
+    }
+    if (numero === 'BANDEIRA') {
+        return <FontAwesomeIcon icon={faFlag} className="flag-icon" />;
+    }
+    return numero;
+};
+
+export const serializarPecasCapturadas = (pecasCapturadas) => {
+    const resultado = { Vermelho: [], Azul: [] };
+
+    ['Vermelho', 'Azul'].forEach((jogador) => {
+        resultado[jogador] = (pecasCapturadas?.[jogador] || []).map((peca) => ({
+            numero: serializarNumeroPeca(peca.numero),
+            jogador: peca.jogador
+        }));
+    });
+
+    return resultado;
+};
+
+export const desserializarPecasCapturadas = (pecasSerializadas) => {
+    const resultado = { Vermelho: [], Azul: [] };
+
+    ['Vermelho', 'Azul'].forEach((jogador) => {
+        resultado[jogador] = (pecasSerializadas?.[jogador] || []).map((peca) => ({
+            numero: desserializarNumeroPeca(peca.numero),
+            jogador: peca.jogador
+        }));
+    });
+
+    return resultado;
 };
 
 // Durante configuração online: não sobrescrever peças locais com updates parciais do servidor
@@ -138,7 +183,7 @@ export const atualizarTabuleiroOnline = async (salaId, tabuleiro) => {
     }
 };
 
-export const COMBATE_REVEAL_MS = 1500;
+export const COMBATE_REVEAL_MS = 2500;
 
 // FUNCAO: Iniciar revelação de combate (ambos os jogadores veem as peças)
 export const iniciarCombateOnline = async (salaId, { origem, destino, atacante, iniciado_em }) => {
@@ -176,6 +221,9 @@ export const resolverCombateOnline = async (salaId, tabuleiro, proximoJogador, o
     if (opts.estado) {
         payload.estado = opts.estado;
     }
+    if (opts.pecasCapturadas) {
+        payload.pecas_capturadas = serializarPecasCapturadas(opts.pecasCapturadas);
+    }
 
     let { error } = await supabase.from('rooms').update(payload).eq('id', id);
 
@@ -187,6 +235,9 @@ export const resolverCombateOnline = async (salaId, tabuleiro, proximoJogador, o
         };
         if (opts.estado) {
             fallback.estado = opts.estado;
+        }
+        if (opts.pecasCapturadas) {
+            fallback.pecas_capturadas = payload.pecas_capturadas;
         }
         const retry = await supabase.from('rooms').update(fallback).eq('id', id);
         if (retry.error) {
@@ -209,6 +260,9 @@ export const sincronizarTurnoOnline = async (salaId, tabuleiro, proximoJogador, 
 
     if (opts.estado) {
         payload.estado = opts.estado;
+    }
+    if (opts.pecasCapturadas) {
+        payload.pecas_capturadas = serializarPecasCapturadas(opts.pecasCapturadas);
     }
 
     const { error } = await supabase.from('rooms').update(payload).eq('id', id);
