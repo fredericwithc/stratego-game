@@ -404,13 +404,18 @@ hr {
     border: 3px solid #2577ad !important;
 }
 
-/* Borda mais fina para peças reveladas (frente — patentes, ranks, bomba, bandeira) */
-.cell:has(.piece-front.vermelho) {
-    border: 2px solid #b42a2a !important;
+/* Borda na frente da peça (patentes, ranks, bomba, bandeira)
+   inset box-shadow fica visível sobre a imagem — a borda na .cell sumia no fundo colorido */
+.piece-front.vermelho {
+    box-shadow: inset 0 0 0 2px #b42a2a;
 }
 
-.cell:has(.piece-front.azul) {
-    border: 2px solid #2577ad !important;
+.piece-front.azul {
+    box-shadow: inset 0 0 0 2px #2577ad;
+}
+
+.piece-front {
+    box-sizing: border-box;
 }
 
 .cell .piece-front:not(.piece-layout-2) {
@@ -618,12 +623,12 @@ hr {
         border: 2px solid #2577ad !important;
     }
 
-    .cell:has(.piece-front.vermelho) {
-        border: 1.2px solid #b42a2a !important;
+    .piece-front.vermelho {
+        box-shadow: inset 0 0 0 1.2px #b42a2a;
     }
 
-    .cell:has(.piece-front.azul) {
-        border: 1.2px solid #2577ad !important;
+    .piece-front.azul {
+        box-shadow: inset 0 0 0 1.2px #2577ad;
     }
 
     /* Bombas e bandeiras menores aqui */
@@ -1108,12 +1113,12 @@ hr {
         border: 6px solid #2577ad !important;
     }
 
-    .cell:has(.piece-front.vermelho) {
-        border: 4px solid #b42a2a !important;
+    .piece-front.vermelho {
+        box-shadow: inset 0 0 0 4px #b42a2a;
     }
 
-    .cell:has(.piece-front.azul) {
-        border: 4px solid #2577ad !important;
+    .piece-front.azul {
+        box-shadow: inset 0 0 0 4px #2577ad;
     }
 
     /* aumenta bombas e bandeiras */
