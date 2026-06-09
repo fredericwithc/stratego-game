@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
@@ -52,7 +52,11 @@ import {
     marcarJogadorPronto,
     desserializarTabuleiro,
     rowToSalaData,
-    mesclarTabuleiroConfigOnline
+    mesclarTabuleiroConfigOnline,
+    sincronizarTurnoOnline,
+    iniciarCombateOnline,
+    resolverCombateOnline,
+    COMBATE_REVEAL_MS
 } from './game-modes/OnlineGame';
 
 function App() {
@@ -180,6 +184,9 @@ function App() {
     const [combateAtivo, setCombateAtivo] = useState(false);
     const [pecaRevelada, setPecaRevelada] = useState(null);
 
+    const combateTimerRef = useRef(null);
+    const combateEventoIdRef = useRef(null);
+
     const [faseJogo, setFaseJogo] = useState('configuracao');
     const [pecasDisponiveis, setPecasDisponiveis] = useState({
         "Vermelho": { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 },
@@ -291,9 +298,51 @@ function App() {
                 ).length;
                 setAguardandoJogador(totalConectados < 2);
 
+                const combateServidor = salaData.combate;
+                const combateAtivoNoServidor =
+                    combateServidor?.origem && combateServidor?.destino;
+
+                if (combateAtivoNoServidor) {
+                    const eventoId = `${combateServidor.origem}-${combateServidor.destino}-${combateServidor.iniciado_em}`;
+                    const souDefensor = minhaCor && combateServidor.atacante !== minhaCor;
+
+                    if (souDefensor && combateEventoIdRef.current !== eventoId) {
+                        combateEventoIdRef.current = eventoId;
+                        const restante = Math.max(
+                            0,
+                            COMBATE_REVEAL_MS - (Date.now() - (combateServidor.iniciado_em || 0))
+                        );
+
+                        setCombateAtivo(true);
+                        setRevealCombate({
+                            origem: combateServidor.origem,
+                            destino: combateServidor.destino
+                        });
+                        setPecaRevelada(combateServidor.destino);
+
+                        if (combateTimerRef.current) {
+                            clearTimeout(combateTimerRef.current);
+                        }
+                        combateTimerRef.current = setTimeout(() => {
+                            setCombateAtivo(false);
+                            setRevealCombate({ origem: null, destino: null });
+                            setPecaRevelada(null);
+                        }, restante);
+                    }
+                } else if (combateEventoIdRef.current) {
+                    combateEventoIdRef.current = null;
+                    if (combateTimerRef.current) {
+                        clearTimeout(combateTimerRef.current);
+                        combateTimerRef.current = null;
+                    }
+                    setCombateAtivo(false);
+                    setRevealCombate({ origem: null, destino: null });
+                    setPecaRevelada(null);
+                }
+
                 let tabuleiroAtualizado = null;
 
-                if (faseSala === 'jogando' && salaData.tabuleiro) {
+                if (faseSala === 'jogando' && salaData.tabuleiro && !combateAtivoNoServidor) {
                     tabuleiroAtualizado = desserializarTabuleiro(salaData.tabuleiro);
                     setTabuleiro(tabuleiroAtualizado);
                 } else if (faseSala === 'configuracao') {
@@ -320,13 +369,33 @@ function App() {
                     }));
                 }
 
-                if (salaData.faseJogo) setFaseJogo(salaData.faseJogo);
-                if (salaData.jogadorAtual) setJogadorAtual(salaData.jogadorAtual);
+                setFaseJogo((faseAnterior) => {
+                    const novaFase = salaData.faseJogo || faseAnterior;
+                    if (novaFase === 'jogando' && faseAnterior !== 'jogando') {
+                        setJogadorPronto(false);
+                        setEnvieiConfigOnline(false);
+                        setMensagem('Configuração completa! Que comece a batalha!');
+                    }
+                    return novaFase;
+                });
 
-                if (faseSala === 'jogando') {
-                    setJogadorPronto(false);
-                    setEnvieiConfigOnline(false);
-                    setMensagem('Configuração completa! Que comece a batalha!');
+                if (salaData.jogadorAtual) {
+                    setJogadorAtual((anterior) => {
+                        const proximo = salaData.jogadorAtual;
+                        if (proximo && proximo !== anterior && faseSala === 'jogando') {
+                            if (minhaCor && proximo === minhaCor) {
+                                setMensagem('Sua vez!');
+                                setMostrarTrocaTurno(true);
+                            } else if (minhaCor) {
+                                setMensagem(`Vez do jogador ${proximo}.`);
+                            }
+                        }
+                        return proximo;
+                    });
+                }
+
+                if (salaData.estado === 'finalizado') {
+                    setJogoTerminado(true);
                 }
             } catch (e) {
                 console.error('[ONLINE] Erro ao aplicar estado da sala:', e);
@@ -364,6 +433,9 @@ function App() {
 
         return () => {
             supabase.removeChannel(channel);
+            if (combateTimerRef.current) {
+                clearTimeout(combateTimerRef.current);
+            }
         };
     }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor]);
 
@@ -406,6 +478,58 @@ function App() {
         registrarCaptura(pecaCapturada, jogadorCapturador, pecasCapturadas, setPecasCapturadas);
     };
 
+    const limparRevelacaoCombate = useCallback(() => {
+        if (combateTimerRef.current) {
+            clearTimeout(combateTimerRef.current);
+            combateTimerRef.current = null;
+        }
+        combateEventoIdRef.current = null;
+        setCombateAtivo(false);
+        setRevealCombate({ origem: null, destino: null });
+        setPecaRevelada(null);
+    }, []);
+
+    const sincronizarEstadoOnline = async (novoTabuleiro, proximoJogador, extra = {}) => {
+        if (modoJogo !== 'online' || !estadoOnline.sala) return;
+
+        try {
+            await sincronizarTurnoOnline(
+                estadoOnline.sala,
+                novoTabuleiro,
+                proximoJogador,
+                extra.estado ? { estado: extra.estado } : {}
+            );
+            if (!extra.jogoTerminado && proximoJogador !== estadoOnline.minhaCor) {
+                setMensagem(`Aguardando jogador ${proximoJogador}...`);
+            }
+        } catch (error) {
+            console.error('[ONLINE] Falha ao publicar movimento:', error);
+            setMensagem('Erro ao sincronizar movimento com o servidor.');
+        }
+    };
+
+    const aoMovimentoOnline = (novoTabuleiro, proximoJogador, extra = {}) => {
+        if (extra.jogoTerminado) {
+            setJogoTerminado(true);
+        }
+
+        if (modoJogo !== 'online' || !estadoOnline.sala) return;
+
+        resolverCombateOnline(
+            estadoOnline.sala,
+            novoTabuleiro,
+            proximoJogador,
+            extra.estado ? { estado: extra.estado } : {}
+        ).then(() => {
+            if (!extra.jogoTerminado && proximoJogador !== estadoOnline.minhaCor) {
+                setMensagem(`Aguardando jogador ${proximoJogador}...`);
+            }
+        }).catch((error) => {
+            console.error('[ONLINE] Falha ao resolver combate:', error);
+            setMensagem('Erro ao sincronizar combate com o servidor.');
+        });
+    };
+
     // Wrapper da função executarCombate
     const executarCombateWrapper = (pecaAtacante, pecaDefensora, posicao, novoTabuleiro, origem) => {
         executarCombate(
@@ -425,7 +549,8 @@ function App() {
             modoJogo,
             finalizarMovimentoIA,
             setJogadorAtual,
-            setMostrarTrocaTurno
+            setMostrarTrocaTurno,
+            modoJogo === 'online' ? aoMovimentoOnline : null
         );
     };
 
@@ -520,6 +645,10 @@ function App() {
             return;
         }
 
+        if (combateAtivo) {
+            return;
+        }
+
         // BLOQUEAR CLIQUES NA FASE "AGUARDANDO"
         if (faseJogo === 'aguardando') {
             setMensagem('Aguarde o outro jogador terminar a configuração.');
@@ -528,6 +657,15 @@ function App() {
 
         // BLOQUEAR INTERAÇÃO COM PEÇAS ERRADAS DURANTE O JOGO
         if (faseJogo === 'jogando') {
+            if (
+                modoJogo === 'online' &&
+                estadoOnline.minhaCor &&
+                jogadorAtual !== estadoOnline.minhaCor
+            ) {
+                setMensagem(`Aguarde a vez do jogador ${jogadorAtual}.`);
+                return;
+            }
+
             const pecaNaPosicao = tabuleiro[posicao];
 
             // Se clicar em uma peça
@@ -661,6 +799,8 @@ function App() {
 
                     if (pecaDefensora) {
                         const origemSel = celulaSelecionada;
+                        const iniciadoEm = Date.now();
+                        const eventoId = `${origemSel}-${posicao}-${iniciadoEm}`;
 
                         setCombateAtivo(true);
                         setRevealCombate({ origem: origemSel, destino: posicao });
@@ -670,9 +810,40 @@ function App() {
                         setCelulaSelecionada(null);
                         setMovimentosValidos([]);
 
-                        setTimeout(() => {
-                            executarCombateWrapper(pecaAtacante, pecaDefensora, posicao, novoTabuleiro, origemSel);
-                        }, 1500);
+                        if (modoJogo === 'online' && estadoOnline.sala) {
+                            combateEventoIdRef.current = eventoId;
+                            iniciarCombateOnline(estadoOnline.sala, {
+                                origem: origemSel,
+                                destino: posicao,
+                                atacante: jogadorAtual,
+                                iniciado_em: iniciadoEm
+                            }).catch((error) => {
+                                console.error('[ONLINE] Falha ao iniciar combate:', error);
+                                limparRevelacaoCombate();
+                                setMensagem('Erro ao sincronizar combate.');
+                            });
+                        }
+
+                        if (combateTimerRef.current) {
+                            clearTimeout(combateTimerRef.current);
+                        }
+                        combateTimerRef.current = setTimeout(() => {
+                            combateTimerRef.current = null;
+                            const souAtacante =
+                                modoJogo !== 'online' ||
+                                !estadoOnline.minhaCor ||
+                                estadoOnline.minhaCor === jogadorAtual;
+
+                            if (souAtacante) {
+                                executarCombateWrapper(
+                                    pecaAtacante,
+                                    pecaDefensora,
+                                    posicao,
+                                    novoTabuleiro,
+                                    origemSel
+                                );
+                            }
+                        }, COMBATE_REVEAL_MS);
 
                         return;
 
@@ -701,9 +872,13 @@ function App() {
                                 }
 
                                 setJogadorAtual(novoJogador);
-                                if (modoJogo !== 'ia') {
+
+                                if (modoJogo === 'online') {
+                                    sincronizarEstadoOnline(novoTabuleiro, novoJogador);
+                                } else if (modoJogo !== 'ia') {
                                     setMostrarTrocaTurno(true);
                                 }
+
                                 setAnimandoMovimento(false);
                                 setDadosAnimacao(null);
                             }, 1500);
@@ -879,7 +1054,8 @@ function App() {
             pecaSelecionadaNoTabuleiro,
             movimentosValidos,
             dadosAnimacao,
-            ultimoMovimento
+            ultimoMovimento,
+            revealCombate
         );
     };
 

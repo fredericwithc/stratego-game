@@ -22,7 +22,8 @@ export const getCellStyle = (
     pecaSelecionadaNoTabuleiro,
     movimentosValidos,
     dadosAnimacao,
-    ultimoMovimento
+    ultimoMovimento,
+    revealCombate = { origem: null, destino: null }
 ) => {
     const baseSelecionada = (celulaSelecionada === posicao)
         ? {
@@ -31,21 +32,26 @@ export const getCellStyle = (
         }
         : {};
 
-    if (combateAtivo && pecaRevelada === posicao) {
-        // Descobrir qual jogador é dono da peça revelada
-        const pecaReveladaInfo = tabuleiro[pecaRevelada];
-        const corJogador = pecaReveladaInfo?.jogador === "Vermelho" ?
+    const celulaEmCombate =
+        combateAtivo &&
+        (posicao === revealCombate?.origem ||
+            posicao === revealCombate?.destino ||
+            pecaRevelada === posicao);
+
+    if (celulaEmCombate) {
+        const pecaInfo = tabuleiro[posicao];
+        const corJogador = pecaInfo?.jogador === "Vermelho" ?
             'linear-gradient(135deg, #e74c3c, #c0392b)' :
             'linear-gradient(135deg, #3498db, #2980b9)';
 
-        const corBorda = pecaReveladaInfo?.jogador === "Vermelho" ? '#c0392b' : '#2980b9';
+        const corBorda = pecaInfo?.jogador === "Vermelho" ? '#c0392b' : '#2980b9';
 
         return {
             animation: 'revealPiece .5s ease-in-out',
             transform: 'scale(1.2)',
             background: `${corJogador} !important`,
             border: `3px solid ${corBorda} !important`,
-            boxShadow: `0 0 20px ${pecaReveladaInfo?.jogador === "Vermelho" ? 'rgba(231, 76, 60, 0.6)' : 'rgba(52, 152, 219, 0.6)'}`,
+            boxShadow: `0 0 20px ${pecaInfo?.jogador === "Vermelho" ? 'rgba(231, 76, 60, 0.6)' : 'rgba(52, 152, 219, 0.6)'}`,
             zIndex: 9999,
             position: 'relative'
         };

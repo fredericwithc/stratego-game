@@ -16,6 +16,7 @@ export const rowToSalaData = (row) => {
         estado: row.estado,
         tabuleiro: row.tabuleiro || {},
         jogadores: row.jogadores || {},
+        combate: row.combate || null,
         criadaEm: row.criada_em ? new Date(row.criada_em).getTime() : Date.now()
     };
 };
@@ -133,6 +134,76 @@ export const atualizarTabuleiroOnline = async (salaId, tabuleiro) => {
 
     if (error) {
         console.error('[ONLINE] Erro ao atualizar tabuleiro:', error);
+        throw error;
+    }
+};
+
+export const COMBATE_REVEAL_MS = 1500;
+
+// FUNCAO: Iniciar revelação de combate (ambos os jogadores veem as peças)
+export const iniciarCombateOnline = async (salaId, { origem, destino, atacante, iniciado_em }) => {
+    const id = String(salaId || '');
+    if (!id || !supabase) return null;
+
+    const combate = {
+        origem,
+        destino,
+        atacante,
+        iniciado_em: iniciado_em || Date.now()
+    };
+
+    const { error } = await supabase.from('rooms').update({ combate }).eq('id', id);
+
+    if (error) {
+        console.error('[ONLINE] Erro ao iniciar combate:', error);
+        throw error;
+    }
+
+    return combate.iniciado_em;
+};
+
+// FUNCAO: Resolver combate — tabuleiro final + troca de turno + limpar combate
+export const resolverCombateOnline = async (salaId, tabuleiro, proximoJogador, opts = {}) => {
+    const id = String(salaId || '');
+    if (!id || !supabase) return;
+
+    const payload = {
+        tabuleiro: serializarTabuleiro(tabuleiro),
+        jogador_atual: proximoJogador,
+        combate: null
+    };
+
+    if (opts.estado) {
+        payload.estado = opts.estado;
+    }
+
+    const { error } = await supabase.from('rooms').update(payload).eq('id', id);
+
+    if (error) {
+        console.error('[ONLINE] Erro ao resolver combate:', error);
+        throw error;
+    }
+};
+
+// FUNCAO: Publicar movimento + troca de turno para o outro jogador via Realtime
+export const sincronizarTurnoOnline = async (salaId, tabuleiro, proximoJogador, opts = {}) => {
+    const id = String(salaId || '');
+    if (!id || !supabase) return;
+
+    const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
+    const payload = {
+        tabuleiro: tabuleiroSerializado,
+        jogador_atual: proximoJogador
+    };
+
+    if (opts.estado) {
+        payload.estado = opts.estado;
+    }
+
+    const { error } = await supabase.from('rooms').update(payload).eq('id', id);
+
+    if (error) {
+        console.error('[ONLINE] Erro ao sincronizar turno:', error);
         throw error;
     }
 };

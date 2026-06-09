@@ -29,8 +29,14 @@ export const executarCombate = (
     modoJogo,
     finalizarMovimentoIA,
     setJogadorAtual,
-    setMostrarTrocaTurno
+    setMostrarTrocaTurno,
+    onMovimentoOnline = null
 ) => {
+    const notificarOnline = (board, proximoJogador, extra = {}) => {
+        if (typeof onMovimentoOnline === 'function') {
+            onMovimentoOnline(board, proximoJogador, extra);
+        }
+    };
     // PRIORIDADE MÁXIMA: Verificar se capturou bandeira
     const ehBandeira = React.isValidElement(pecaDefensora.numero) &&
         pecaDefensora.numero.props?.icon === faFlag;
@@ -48,6 +54,7 @@ export const executarCombate = (
         setCombateAtivo(false);
         setPecaRevelada(null);
         setRevealCombate({ origem: null, destino: null });
+        notificarOnline(novoTabuleiro, jogadorAtual, { jogoTerminado: true, estado: 'finalizado' });
         return;
     }
 
@@ -94,6 +101,7 @@ export const executarCombate = (
         setJogoTerminado(true);
         setCombateAtivo(false);
         setPecaRevelada(null);
+        notificarOnline(novoTabuleiro, jogadorAtual, { jogoTerminado: true, estado: 'finalizado' });
         return;
     }
     setCombateAtivo(false);
@@ -108,8 +116,10 @@ export const executarCombate = (
     }
 
     setJogadorAtual(novoJogador);
-    // Só mostra popup de troca de turno se NÃO for modo IA
-    if (modoJogo !== 'ia') {
+    notificarOnline(novoTabuleiro, novoJogador);
+
+    // Só mostra popup de troca de turno se NÃO for modo IA nem online (online usa Realtime)
+    if (modoJogo !== 'ia' && modoJogo !== 'online') {
         setMostrarTrocaTurno(true);
     }
 };

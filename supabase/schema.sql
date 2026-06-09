@@ -10,8 +10,12 @@ create table if not exists public.rooms (
   estado text not null default 'aguardando',
   tabuleiro jsonb not null default '{}'::jsonb,
   jogadores jsonb not null default '{}'::jsonb,
+  combate jsonb,
   criada_em timestamptz not null default now()
 );
+
+-- Se a tabela já existir sem a coluna combate, rode também:
+-- alter table public.rooms add column if not exists combate jsonb;
 
 alter table public.rooms enable row level security;
 
@@ -59,6 +63,7 @@ begin
   else
     r.jogador_atual := 'Vermelho';
     r.fase_jogo := 'jogando';
+    r.estado := 'jogando';
   end if;
 
   update public.rooms set
