@@ -24,7 +24,7 @@ export const getPeca = (
         combateAtivo &&
         (posicao === revealCombate.origem || posicao === revealCombate.destino)
     ) {
-        return renderPieceWithRank(peca.numero);
+        return renderPieceWithRank(peca.numero, peca.jogador);
     }
 
     // MODO ONLINE - LÓGICA ESPECIAL
@@ -35,7 +35,7 @@ export const getPeca = (
         if (faseJogo === 'configuracao' || faseJogo === 'aguardando') {
             // Só mostro a FACE das MINHAS peças
             if (peca.jogador === minhaCor) {
-                return renderPieceWithRank(peca.numero);
+                return renderPieceWithRank(peca.numero, peca.jogador);
             } else {
                 // Peças do oponente ficam ocultas
                 return renderPieceBack(peca.jogador);
@@ -46,7 +46,7 @@ export const getPeca = (
         if (faseJogo === 'jogando') {
             // Só mostro a FACE das MINHAS peças
             if (peca.jogador === minhaCor) {
-                return renderPieceWithRank(peca.numero);
+                return renderPieceWithRank(peca.numero, peca.jogador);
             } else {
                 // Peças do oponente ficam ocultas (até combate)
                 return renderPieceBack(peca.jogador);
@@ -63,13 +63,13 @@ export const getPeca = (
             }
             // Peças Azuis (humano): mostra quando for o turno dele configurar
             return peca.jogador === jogadorAtual
-                ? renderPieceWithRank(peca.numero)
+                ? renderPieceWithRank(peca.numero, peca.jogador)
                 : renderPieceBack('Azul');
         }
 
         // Modo local (sem IA)
         if (peca.jogador === jogadorAtual) {
-            return renderPieceWithRank(peca.numero);
+            return renderPieceWithRank(peca.numero, peca.jogador);
         } else {
             return renderPieceBack(peca.jogador);
         }
@@ -91,14 +91,14 @@ export const getPeca = (
     // Durante o jogo contra IA, só mostrar peças do jogador humano
     if (modoJogo === 'ia') {
         if (peca.jogador === "Azul") {
-            return renderPieceWithRank(peca.numero);
+            return renderPieceWithRank(peca.numero, peca.jogador);
         } else {
             return renderPieceBack("Vermelho");
         }
     } else {
         // Modo local - mostrar peças do jogador atual
         if (peca.jogador === jogadorAtual) {
-            return renderPieceWithRank(peca.numero);
+            return renderPieceWithRank(peca.numero, peca.jogador);
         } else {
             return renderPieceBack(peca.jogador);
         }

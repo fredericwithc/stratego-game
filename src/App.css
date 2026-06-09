@@ -404,6 +404,23 @@ hr {
     border: 3px solid #2577ad !important;
 }
 
+/* Borda mais fina para peças reveladas (frente — patentes, ranks, bomba, bandeira) */
+.cell:has(.piece-front.vermelho) {
+    border: 1.5px solid #b42a2a !important;
+}
+
+.cell:has(.piece-front.azul) {
+    border: 1.5px solid #2577ad !important;
+}
+
+.cell .piece-front:not(.piece-layout-2) {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* POP-UP MUDANÇA TURNO */
 .turno-overlay {
     position: fixed;
@@ -599,6 +616,14 @@ hr {
 
     .cell:has(.piece-back.azul) {
         border: 2px solid #2577ad !important;
+    }
+
+    .cell:has(.piece-front.vermelho) {
+        border: 1px solid #b42a2a !important;
+    }
+
+    .cell:has(.piece-front.azul) {
+        border: 1px solid #2577ad !important;
     }
 
     /* Bombas e bandeiras menores aqui */
@@ -1081,6 +1106,14 @@ hr {
 
     .cell:has(.piece-back.azul) {
         border: 6px solid #2577ad !important;
+    }
+
+    .cell:has(.piece-front.vermelho) {
+        border: 3px solid #b42a2a !important;
+    }
+
+    .cell:has(.piece-front.azul) {
+        border: 3px solid #2577ad !important;
     }
 
     /* aumenta bombas e bandeiras */
