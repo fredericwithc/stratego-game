@@ -39,6 +39,14 @@ Instead, it will copy all the configuration files and the transitive dependencie
 
 You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
+## Jogo online (Supabase)
+
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. No **SQL Editor**, execute o arquivo [`supabase/schema.sql`](supabase/schema.sql) **inteiro** (já inclui Realtime na tabela `rooms`).
+3. **Não** use **Database → Replication** (isso é para réplicas/read replicas pagas). Para conferir Realtime: **Database → Publications** → abra `supabase_realtime` e veja se `rooms` está listada. Alternativa: ícone **Realtime** na barra lateral do projeto.
+4. Copie `.env.example` para `.env.local` e preencha `REACT_APP_SUPABASE_URL` e `REACT_APP_SUPABASE_ANON_KEY` (Project Settings → API).
+5. Rode `npm start` (local) ou `npm run build` + `npm run deploy` (GitHub Pages) com as variáveis definidas antes do build.
+
 ## Learn More
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).

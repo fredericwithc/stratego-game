@@ -1,9 +1,23 @@
-import { ref, set, get, remove, runTransaction } from 'firebase/database';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
+import { supabase } from '../supabase';
 
-// FUNCAO: Gerar codigo de sala aleatorio 
+// Converte linha Postgres (snake_case) para o formato usado na UI
+export const rowToSalaData = (row) => {
+    if (!row) return null;
+    return {
+        host: row.host_id,
+        faseJogo: row.fase_jogo,
+        jogadorAtual: row.jogador_atual,
+        estado: row.estado,
+        tabuleiro: row.tabuleiro || {},
+        jogadores: row.jogadores || {},
+        criadaEm: row.criada_em ? new Date(row.criada_em).getTime() : Date.now()
+    };
+};
+
+// FUNCAO: Gerar codigo de sala aleatorio
 export const gerarCodigoSala = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
@@ -58,7 +72,6 @@ export const desserializarTabuleiro = (tabuleiroSerializado) => {
     return tabuleiro;
 };
 
-// FUNCAO: Salvar ID do jogador no localStorage
 const salvarJogadorId = (sala, jogadorId, cor) => {
     localStorage.setItem(`stratego_sala_${sala}`, JSON.stringify({
         jogadorId,
@@ -67,7 +80,6 @@ const salvarJogadorId = (sala, jogadorId, cor) => {
     }));
 };
 
-// FUNCAO: Recuperar ID do jogador do localStorage
 const recuperarJogadorId = (sala) => {
     const data = localStorage.getItem(`stratego_sala_${sala}`);
     if (!data) return null;
@@ -84,72 +96,51 @@ const recuperarJogadorId = (sala) => {
     }
 };
 
-// FUNCAO: Marcar jogador como pronto e sincronizar tabuleiro
-export const marcarJogadorPronto = async (
-    database,
-    sala,
-    jogadorId,
-    tabuleiro,
-    minhaCor
-) => {
-    try {
-        const salaId = String(sala || '');
-        const playerId = String(jogadorId || '');
+// FUNCAO: Atualizar tabuleiro na sala (colocação de peça durante configuração)
+export const atualizarTabuleiroOnline = async (salaId, tabuleiro) => {
+    const id = String(salaId || '');
+    if (!id) return;
 
-        if (!salaId || !playerId) {
-            throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
-        }
+    const tabuleiroSerializado = serializarTabuleiro(tabuleiro);
+    const { error } = await supabase
+        .from('rooms')
+        .update({ tabuleiro: tabuleiroSerializado })
+        .eq('id', id);
 
-        const minhasPecasSerial = serializarTabuleiro(tabuleiro);
-        const salaRef = ref(database, `salas/${salaId}`);
-
-        // Transação: lê o estado atual da sala, mescla tabuleiro e aplica virada de turno de forma atômica.
-        // Evita condições de corrida entre dois clientes e falhas parciais do update().
-        await runTransaction(salaRef, (current) => {
-            if (current == null) {
-                return undefined;
-            }
-
-            const c = typeof current === 'object' ? { ...current } : {};
-            const tabuleiroFirebase =
-                c.tabuleiro && typeof c.tabuleiro === 'object' ? c.tabuleiro : {};
-            const tabuleiroMesclado = { ...tabuleiroFirebase, ...minhasPecasSerial };
-
-            const hostId = c.host != null ? String(c.host) : '';
-            const isVermelho = Boolean(hostId && playerId === hostId);
-
-            const jogadores = { ...(c.jogadores || {}) };
-            const anterior = jogadores[playerId] || {};
-            jogadores[playerId] = { ...anterior, pronto: true };
-
-            const next = {
-                ...c,
-                tabuleiro: tabuleiroMesclado,
-                jogadores
-            };
-
-            if (isVermelho) {
-                next.faseJogo = 'configuracao';
-                next.jogadorAtual = 'Azul';
-            } else {
-                next.faseJogo = 'jogando';
-                next.jogadorAtual = 'Vermelho';
-            }
-
-            return next;
-        });
-
-        console.log('[ONLINE] marcarJogadorPronto: transação concluída', { salaId, playerId });
-        return true;
-    } catch (error) {
-        console.error('[ONLINE] Erro ao marcar pronto:', error);
+    if (error) {
+        console.error('[ONLINE] Erro ao atualizar tabuleiro:', error);
         throw error;
     }
 };
 
-// FUNCAO: Criar sala nova 
+// FUNCAO: Marcar jogador como pronto (RPC atômica no Postgres)
+export const marcarJogadorPronto = async (sala, jogadorId, tabuleiro) => {
+    const salaId = String(sala || '');
+    const playerId = String(jogadorId || '');
+
+    if (!salaId || !playerId) {
+        throw new Error('Sala ou jogadorId inválido ao marcar pronto.');
+    }
+
+    const tabuleiroPatch = serializarTabuleiro(tabuleiro);
+
+    const { data, error } = await supabase.rpc('marcar_pronto', {
+        room_id: salaId,
+        player_id: playerId,
+        tabuleiro_patch: tabuleiroPatch
+    });
+
+    if (error) {
+        console.error('[ONLINE] Erro ao marcar pronto:', error);
+        throw error;
+    }
+
+    console.log('[ONLINE] marcarJogadorPronto concluído', { salaId, playerId, data });
+    return rowToSalaData(data);
+};
+
+// FUNCAO: Criar sala nova
 export const criarSala = async (
-    database,
     setEstadoOnline,
     setJogadorOnlineId,
     setModoJogo,
@@ -161,9 +152,9 @@ export const criarSala = async (
         const codigo = gerarCodigoSala();
         const jogadorId = Date.now().toString();
 
-        const salaRef = ref(database, `salas/${codigo}`);
-        await set(salaRef, {
-            host: jogadorId,
+        const { error } = await supabase.from('rooms').insert({
+            id: codigo,
+            host_id: jogadorId,
             jogadores: {
                 [jogadorId]: {
                     nome: 'Jogador 1',
@@ -175,10 +166,11 @@ export const criarSala = async (
             },
             estado: 'aguardando',
             tabuleiro: {},
-            jogadorAtual: 'Vermelho',
-            faseJogo: 'configuracao',
-            criadaEm: Date.now()
+            jogador_atual: 'Vermelho',
+            fase_jogo: 'configuracao'
         });
+
+        if (error) throw error;
 
         salvarJogadorId(codigo, jogadorId, 'Vermelho');
 
@@ -193,15 +185,16 @@ export const criarSala = async (
         setAguardandoJogador(true);
         setTelaSalaCriada(true);
 
+        return true;
     } catch (error) {
         setErroConexao('Erro ao criar sala: ' + error.message);
+        return false;
     }
 };
 
-// FUNCAO: Entrar em sala existente 
+// FUNCAO: Entrar em sala existente
 export const entrarNaSala = async (
     codigoSala,
-    database,
     setEstadoOnline,
     setJogadorOnlineId,
     setModoJogo,
@@ -216,36 +209,47 @@ export const entrarNaSala = async (
 
     if (!codigo) {
         setErroConexao('Digite um codigo de sala');
-        return;
+        return false;
     }
 
     try {
-        const salaRef = ref(database, `salas/${codigo}`);
-        const snap = await get(salaRef);
-        const salaData = snap.val();
+        const { data: row, error: fetchError } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('id', codigo)
+            .maybeSingle();
 
-        if (!salaData) {
+        if (fetchError) throw fetchError;
+        if (!row) {
             setErroConexao('Sala nao encontrada');
-            return;
+            return false;
         }
 
+        const salaData = rowToSalaData(row);
         const dadosSalvos = recuperarJogadorId(codigo);
 
         if (dadosSalvos && salaData.jogadores?.[dadosSalvos.jogadorId]) {
             const jogadorId = dadosSalvos.jogadorId;
             const minhaCor = dadosSalvos.cor;
+            const jogadores = { ...salaData.jogadores };
 
-            const jogadorRef = ref(database, `salas/${codigo}/jogadores/${jogadorId}`);
-            await set(jogadorRef, {
-                ...salaData.jogadores[jogadorId],
+            jogadores[jogadorId] = {
+                ...jogadores[jogadorId],
                 conectado: true,
                 ultimaAtualizacao: Date.now()
-            });
+            };
+
+            const { error: updateError } = await supabase
+                .from('rooms')
+                .update({ jogadores })
+                .eq('id', codigo);
+
+            if (updateError) throw updateError;
 
             setEstadoOnline({
                 sala: codigo,
                 conectado: true,
-                jogadorHost: salaData.host === jogadorId,
+                jogadorHost: String(salaData.host) === String(jogadorId),
                 minhaCor: minhaCor
             });
             setJogadorOnlineId(jogadorId);
@@ -256,26 +260,34 @@ export const entrarNaSala = async (
             setCodigoSala('');
             setFaseJogo(salaData.faseJogo || 'configuracao');
             setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
-            return;
+            return true;
         }
 
-        const jogadores = Object.values(salaData.jogadores || {});
-        const totalConectados = jogadores.filter((jogador) => jogador?.conectado !== false).length;
+        const jogadoresList = Object.values(salaData.jogadores || {});
+        const totalConectados = jogadoresList.filter((j) => j?.conectado !== false).length;
 
         if (totalConectados >= 2) {
             setErroConexao('Sala cheia. Use o mesmo navegador para reconectar.');
-            return;
+            return false;
         }
 
         const jogadorId = Date.now().toString();
-        const jogadoresRef = ref(database, `salas/${codigo}/jogadores/${jogadorId}`);
-        await set(jogadoresRef, {
+        const jogadores = { ...salaData.jogadores };
+
+        jogadores[jogadorId] = {
             nome: 'Jogador 2',
             cor: 'Azul',
             pronto: false,
             conectado: true,
             ultimaAtualizacao: Date.now()
-        });
+        };
+
+        const { error: joinError } = await supabase
+            .from('rooms')
+            .update({ jogadores })
+            .eq('id', codigo);
+
+        if (joinError) throw joinError;
 
         salvarJogadorId(codigo, jogadorId, 'Azul');
 
@@ -292,64 +304,53 @@ export const entrarNaSala = async (
         setErroConexao('');
         setCodigoSala('');
 
-        const hostId = salaData.host ? String(salaData.host) : '';
-        const hostPronto = hostId ? Boolean(salaData.jogadores?.[hostId]?.pronto) : false;
+        setFaseJogo(salaData.faseJogo || 'configuracao');
+        setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
 
-        // A virada de turno na configuração online é `jogadorAtual`, não necessariamente `pronto`.
-        if (salaData.jogadorAtual === 'Azul' && salaData.faseJogo !== 'jogando') {
-            setFaseJogo('configuracao');
-            setJogadorAtual('Azul');
-        } else if (hostPronto && salaData.faseJogo !== 'jogando') {
-            setFaseJogo('configuracao');
-            setJogadorAtual('Azul');
-        } else {
-            setFaseJogo(salaData.faseJogo || 'configuracao');
-            setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
-        }
-
+        return true;
     } catch (error) {
         setErroConexao('Erro ao entrar na sala: ' + error.message);
+        return false;
     }
 };
 
 // FUNCAO: Sair da sala
-export const sairDaSala = async (database, sala, jogadorId) => {
+export const sairDaSala = async (sala, jogadorId) => {
     if (!sala || !jogadorId) return;
 
     try {
-        const jogadorRef = ref(database, `salas/${sala}/jogadores/${jogadorId}`);
-        const snap = await get(jogadorRef);
+        const { data: row, error: fetchError } = await supabase
+            .from('rooms')
+            .select('jogadores')
+            .eq('id', sala)
+            .maybeSingle();
 
-        if (snap.exists()) {
-            await set(jogadorRef, {
-                ...snap.val(),
-                conectado: false,
-                ultimaAtualizacao: Date.now()
-            });
-        }
+        if (fetchError || !row?.jogadores?.[jogadorId]) return;
+
+        const jogadores = { ...row.jogadores };
+        jogadores[jogadorId] = {
+            ...jogadores[jogadorId],
+            conectado: false,
+            ultimaAtualizacao: Date.now()
+        };
+
+        await supabase.from('rooms').update({ jogadores }).eq('id', sala);
     } catch (error) {
         console.error('Erro ao sair da sala:', error);
     }
 };
 
 // FUNCAO: Limpar salas antigas
-export const limparSalasAntigas = async (database) => {
+export const limparSalasAntigas = async () => {
     try {
-        const salasRef = ref(database, 'salas');
-        const snap = await get(salasRef);
+        const umDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { error } = await supabase
+            .from('rooms')
+            .delete()
+            .lt('criada_em', umDiaAtras);
 
-        if (!snap.exists()) return;
-
-        const salas = snap.val();
-        const agora = Date.now();
-        const umDia = 24 * 60 * 60 * 1000;
-
-        for (const [codigo, sala] of Object.entries(salas)) {
-            if (sala.criadaEm && (agora - sala.criadaEm > umDia)) {
-                const salaRef = ref(database, `salas/${codigo}`);
-                await remove(salaRef);
-                console.log(`Sala ${codigo} removida (antiga)`);
-            }
+        if (error) {
+            console.error('Erro ao limpar salas:', error);
         }
     } catch (error) {
         console.error('Erro ao limpar salas:', error);

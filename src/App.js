@@ -1,11 +1,11 @@
 /* eslint-disable */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBomb, faFlag } from '@fortawesome/free-solid-svg-icons';
 
-// Imports do Firebase
-import { database } from './firebase';
+// Supabase (jogo online)
+import { supabase } from './supabase';
 
 // Imports dos componentes
 import Navbar from './components/Navbar/Navbar';
@@ -43,7 +43,15 @@ import {
 } from './game-modes/AIGame';
 
 // Imports do jogo online
-import { gerarCodigoSala, criarSala, entrarNaSala, marcarJogadorPronto, desserializarTabuleiro, serializarTabuleiro } from './game-modes/OnlineGame';
+import {
+    gerarCodigoSala,
+    criarSala,
+    entrarNaSala,
+    marcarJogadorPronto,
+    desserializarTabuleiro,
+    rowToSalaData,
+    atualizarTabuleiroOnline
+} from './game-modes/OnlineGame';
 
 function App() {
     // ESTADOS DO JOGO
@@ -110,7 +118,6 @@ function App() {
 
     // Estado: Mensagens de erro de conexão para mostrar ao usuário
     const [erroConexao, setErroConexao] = useState('');
-    const ajusteTurnoAzulRef = useRef(false);
 
     // Estado: peca selecionada no posicionamento
     const [pecaSelecionadaNoTabuleiro, setPecaSelecionadaNoTabuleiro] = useState(null);
@@ -249,7 +256,7 @@ function App() {
         const handleBeforeUnload = () => {
             if (modoJogo === 'online' && estadoOnline.sala && jogadorOnlineId) {
                 const { sairDaSala } = require('./game-modes/OnlineGame');
-                sairDaSala(database, estadoOnline.sala, jogadorOnlineId);
+                sairDaSala(estadoOnline.sala, jogadorOnlineId);
             }
         };
 
@@ -261,127 +268,90 @@ function App() {
         };
     }, [modoJogo, estadoOnline.sala, jogadorOnlineId]);
 
-    // EFEITO: Sincronizar TUDO do Firebase em tempo real
+    // EFEITO: Sincronizar sala online via Supabase Realtime
     useEffect(() => {
         if (modoJogo !== 'online' || !estadoOnline.sala) return;
 
-        const { onValue, ref, update } = require('firebase/database');
-        const salaRef = ref(database, `salas/${estadoOnline.sala}`);
+        const salaId = estadoOnline.sala;
+        const minhaCor = estadoOnline.minhaCor;
 
-        console.log('Iniciando listener Firebase para sala:', estadoOnline.sala);
-
-        const unsubscribe = onValue(salaRef, (snapshot) => {
+        const aplicarSala = (row) => {
             try {
-            const salaData = snapshot.val();
-            if (!salaData) {
-                console.warn('Sala não encontrada no Firebase');
-                return;
-            }
+                const salaData = rowToSalaData(row);
+                if (!salaData) return;
 
-            console.log('Dados recebidos do Firebase:', salaData);
+                console.log('[ONLINE] Dados da sala:', salaData);
 
-            const faseSala = salaData.faseJogo || 'configuracao';
+                const faseSala = salaData.faseJogo || 'configuracao';
+                const jogadores = salaData.jogadores || {};
+                const totalConectados = Object.values(jogadores).filter(
+                    (j) => j?.conectado !== false
+                ).length;
+                setAguardandoJogador(totalConectados < 2);
 
-            // VERIFICAR SE EU JÁ ESTOU PRONTO NO FIREBASE
-            const jogadores = salaData.jogadores || {};
-            const totalConectados = Object.values(jogadores).filter(
-                (jogador) => jogador?.conectado !== false
-            ).length;
-            setAguardandoJogador(totalConectados < 2);
+                if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
+                    const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
 
-            // 0. REPARO DEFENSIVO DE TURNO (configuração online)
-            // Se o host (Vermelho) já está pronto, o próximo passo SEMPRE é o Azul configurar.
-            // Isso evita travas quando o clique "Pronto" não conseguir gravar `jogadorAtual`.
-            const hostId = salaData.host ? String(salaData.host) : '';
-            const hostPronto = hostId ? Boolean(jogadores?.[hostId]?.pronto) : false;
-            if (
-                hostPronto &&
-                faseSala === 'configuracao' &&
-                salaData.jogadorAtual !== 'Azul' &&
-                !ajusteTurnoAzulRef.current
-            ) {
-                ajusteTurnoAzulRef.current = true;
-                update(salaRef, { jogadorAtual: 'Azul' })
-                    .catch((error) => {
-                        console.error('[ONLINE] Falha ao reparar jogadorAtual para Azul:', error);
-                    })
-                    .finally(() => {
-                        ajusteTurnoAzulRef.current = false;
+                    setTabuleiro((prevTabuleiro) => {
+                        if (faseSala === 'configuracao' && minhaCor) {
+                            const novoTabuleiro = { ...tabuleiroDesserializado };
+                            Object.entries(prevTabuleiro).forEach(([pos, peca]) => {
+                                if (peca && peca.jogador === minhaCor && !tabuleiroDesserializado[pos]) {
+                                    novoTabuleiro[pos] = peca;
+                                }
+                            });
+                            return novoTabuleiro;
+                        }
+                        return tabuleiroDesserializado;
                     });
-            }
-
-            // 1. SINCRONIZAR TABULEIRO - COM DESSERIALIZAÇÃO
-            if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
-                console.log('Sincronizando tabuleiro:', Object.keys(salaData.tabuleiro).length, 'peças');
-                const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
-
-                setTabuleiro(prevTabuleiro => {
-                    // Se estou configurando, ADICIONAR minhas peças ao tabuleiro do Firebase
-                    if (faseSala === 'configuracao' && estadoOnline.minhaCor) {
-                        const novoTabuleiro = { ...tabuleiroDesserializado };
-
-                        // Adicionar minhas peças locais que ainda não foram sincronizadas
-                        Object.entries(prevTabuleiro).forEach(([pos, peca]) => {
-                            if (peca && peca.jogador === estadoOnline.minhaCor && !tabuleiroDesserializado[pos]) {
-                                novoTabuleiro[pos] = peca;
-                            }
-                        });
-
-                        return novoTabuleiro;
-                    }
-
-                    // Fora da configuração, usar o tabuleiro do Firebase diretamente
-                    return tabuleiroDesserializado;
-                });
-            }
-
-            // 2. SINCRONIZAR FASE DO JOGO
-            if (salaData.faseJogo) {
-                setFaseJogo(salaData.faseJogo);
-            }
-
-            // 3. SINCRONIZAR JOGADOR ATUAL
-            if (salaData.jogadorAtual) {
-                setJogadorAtual(salaData.jogadorAtual);
-            }
-
-            // 4. VERIFICAR SE VERMELHO TERMINOU
-            if (estadoOnline.minhaCor === 'Azul') {
-                const jogadorVermelho = hostId ? jogadores?.[hostId] : Object.values(jogadores).find(j => j?.cor === 'Vermelho' && j?.conectado !== false);
-                const vermelhoPronto = Boolean(jogadorVermelho?.pronto);
-
-                if (
-                    vermelhoPronto &&
-                    salaData.jogadorAtual === 'Azul' &&
-                    faseSala !== 'jogando'
-                ) {
-                    console.log('Vermelho pronto! Azul pode começar.');
-                    setFaseJogo('configuracao');
-                    setJogadorAtual('Azul');
-                    setJogadorPronto(false);
-                    setMensagem('Agora é sua vez! Posicione suas peças no território azul (linhas G-J).');
                 }
-            }
 
-            // 5. VERIFICAR SE JOGO INICIOU
-            if (faseSala === 'jogando') {
-                console.log('Jogo iniciando!');
-                setFaseJogo('jogando');
-                setJogadorAtual(salaData.jogadorAtual || 'Vermelho');
-                setJogadorPronto(false);
-                setEnvieiConfigOnline(false);
-                setMensagem('Configuração completa! Que comece a batalha!');
-            }
+                if (salaData.faseJogo) setFaseJogo(salaData.faseJogo);
+                if (salaData.jogadorAtual) setJogadorAtual(salaData.jogadorAtual);
+
+                if (faseSala === 'jogando') {
+                    setJogadorPronto(false);
+                    setEnvieiConfigOnline(false);
+                    setMensagem('Configuração completa! Que comece a batalha!');
+                }
             } catch (e) {
-                console.error('[ONLINE] Erro no listener Firebase:', e);
+                console.error('[ONLINE] Erro ao aplicar estado da sala:', e);
             }
-        });
+        };
+
+        supabase
+            .from('rooms')
+            .select('*')
+            .eq('id', salaId)
+            .single()
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('[ONLINE] Falha ao carregar sala:', error);
+                    return;
+                }
+                if (data) aplicarSala(data);
+            });
+
+        const channel = supabase
+            .channel(`room:${salaId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rooms',
+                    filter: `id=eq.${salaId}`
+                },
+                (payload) => {
+                    if (payload.new) aplicarSala(payload.new);
+                }
+            )
+            .subscribe();
 
         return () => {
-            console.log('Removendo listener Firebase');
-            unsubscribe();
+            supabase.removeChannel(channel);
         };
-    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor, jogadorOnlineId]);
+    }, [modoJogo, estadoOnline.sala, estadoOnline.minhaCor]);
 
     // FUNÇÕES DO JOGO
 
@@ -623,30 +593,18 @@ function App() {
 
                 // SINCRONIZAR TABULEIRO NO MODO ONLINE
                 if (modoJogo === 'online' && estadoOnline.sala) {
-                    // Usar useEffect para sincronizar após atualização do estado
                     const sincronizar = async () => {
                         try {
-                            const { ref, set } = require('firebase/database');
-                            const tabuleiroRef = ref(database, `salas/${estadoOnline.sala}/tabuleiro`);
-
-                            // Pegar o tabuleiro atualizado do estado
                             const tabuleiroAtual = { ...tabuleiro };
-
-                            // Adicionar a peça que acabou de ser colocada
                             tabuleiroAtual[posicao] = {
                                 numero: pecaSelecionadaConfig,
                                 jogador: jogadorAtual
                             };
-
-                            // Só gravar JSON válido (sem elementos React). Antes isso podia quebrar o SDK / sync.
-                            const tabuleiroSerializado = serializarTabuleiro(tabuleiroAtual);
-                            await set(tabuleiroRef, tabuleiroSerializado);
-                            console.log('Tabuleiro sincronizado:', Object.keys(tabuleiroAtual).length, 'peças');
+                            await atualizarTabuleiroOnline(estadoOnline.sala, tabuleiroAtual);
                         } catch (error) {
                             console.error('Erro ao sincronizar tabuleiro:', error);
                         }
                     };
-
                     sincronizar();
                 }
 
@@ -860,9 +818,8 @@ function App() {
     };
 
     // Wrappers para funções online
-    const handleCriarSala = () => {
-        criarSala(
-            database,
+    const handleCriarSala = async () => {
+        const ok = await criarSala(
             setEstadoOnline,
             setJogadorOnlineId,
             setModoJogo,
@@ -870,12 +827,20 @@ function App() {
             setTelaSalaCriada,
             setErroConexao
         );
+        if (!ok) return;
+        setJogadorAtual('Vermelho');
+        setFaseJogo('configuracao');
+        setTabuleiro({});
+        setPecasDisponiveis({
+            Vermelho: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 },
+            Azul: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 }
+        });
+        setPecaSelecionadaConfig(null);
     };
 
-    const handleEntrarNaSala = () => {
-        entrarNaSala(
+    const handleEntrarNaSala = async () => {
+        const ok = await entrarNaSala(
             codigoSala,
-            database,
             setEstadoOnline,
             setJogadorOnlineId,
             setModoJogo,
@@ -886,6 +851,13 @@ function App() {
             setFaseJogo,
             setJogadorAtual
         );
+        if (!ok) return;
+        setTabuleiro({});
+        setPecasDisponiveis({
+            Vermelho: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 },
+            Azul: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 }
+        });
+        setPecaSelecionadaConfig(null);
     };
 
     // Wrapper para getCellStyle
@@ -990,7 +962,7 @@ function App() {
                         )}
 
                         {/* MENSAGEM QUANDO NÃO É MINHA VEZ */}
-                        {modoJogo === 'online' && estadoOnline.minhaCor !== jogadorAtual && (
+                        {modoJogo === 'online' && estadoOnline.minhaCor && estadoOnline.minhaCor !== jogadorAtual && (
                             <div className="waiting-message" style={{
                                 textAlign: 'center',
                                 padding: '20px',
@@ -1017,11 +989,9 @@ function App() {
                                     if (modoJogo === 'online' && estadoOnline.sala && jogadorOnlineId) {
                                         try {
                                             await marcarJogadorPronto(
-                                                database,
                                                 estadoOnline.sala,
                                                 jogadorOnlineId,
-                                                tabuleiro,
-                                                estadoOnline.minhaCor
+                                                tabuleiro
                                             );
 
                                             if (estadoOnline.minhaCor === "Vermelho") {
