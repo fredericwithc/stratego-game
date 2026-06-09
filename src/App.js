@@ -28,7 +28,9 @@ import {
     validarConfiguracaoCompleta,
     contarPecasRestantes,
     colocarPecaConfiguracao,
-    moverPecaNoTabuleiro
+    moverPecaNoTabuleiro,
+    calcularPecasDisponiveisDoTabuleiro,
+    PECAS_INICIAIS_JOGADOR
 } from './utils/configUtils';
 import { getCellStyle } from './utils/styleUtils';
 import { getPeca } from './utils/getPieceDisplay';
@@ -50,7 +52,7 @@ import {
     marcarJogadorPronto,
     desserializarTabuleiro,
     rowToSalaData,
-    atualizarTabuleiroOnline
+    mesclarTabuleiroConfigOnline
 } from './game-modes/OnlineGame';
 
 function App() {
@@ -289,21 +291,33 @@ function App() {
                 ).length;
                 setAguardandoJogador(totalConectados < 2);
 
-                if (salaData.tabuleiro && Object.keys(salaData.tabuleiro).length > 0) {
-                    const tabuleiroDesserializado = desserializarTabuleiro(salaData.tabuleiro);
+                let tabuleiroAtualizado = null;
 
+                if (faseSala === 'jogando' && salaData.tabuleiro) {
+                    tabuleiroAtualizado = desserializarTabuleiro(salaData.tabuleiro);
+                    setTabuleiro(tabuleiroAtualizado);
+                } else if (faseSala === 'configuracao') {
                     setTabuleiro((prevTabuleiro) => {
-                        if (faseSala === 'configuracao' && minhaCor) {
-                            const novoTabuleiro = { ...tabuleiroDesserializado };
-                            Object.entries(prevTabuleiro).forEach(([pos, peca]) => {
-                                if (peca && peca.jogador === minhaCor && !tabuleiroDesserializado[pos]) {
-                                    novoTabuleiro[pos] = peca;
-                                }
-                            });
-                            return novoTabuleiro;
-                        }
-                        return tabuleiroDesserializado;
+                        tabuleiroAtualizado = mesclarTabuleiroConfigOnline(
+                            prevTabuleiro,
+                            salaData.tabuleiro || {},
+                            minhaCor,
+                            salaData.jogadorAtual
+                        );
+                        return tabuleiroAtualizado;
                     });
+                }
+
+                if (
+                    faseSala === 'configuracao' &&
+                    minhaCor &&
+                    salaData.jogadorAtual === minhaCor &&
+                    tabuleiroAtualizado
+                ) {
+                    setPecasDisponiveis((pd) => ({
+                        ...pd,
+                        [minhaCor]: calcularPecasDisponiveisDoTabuleiro(minhaCor, tabuleiroAtualizado)
+                    }));
                 }
 
                 if (salaData.faseJogo) setFaseJogo(salaData.faseJogo);
@@ -539,11 +553,19 @@ function App() {
         }
 
         if (faseJogo === 'configuracao') {
+            const jogadorConfig =
+                modoJogo === 'online' && estadoOnline.minhaCor
+                    ? estadoOnline.minhaCor
+                    : jogadorAtual;
+
             // MODO ONLINE: Só posso interagir na minha vez
             if (modoJogo === 'online' && estadoOnline.minhaCor) {
-                // Não é minha vez de configurar
                 if (jogadorAtual !== estadoOnline.minhaCor) {
                     setMensagem(`Aguarde o jogador ${jogadorAtual} configurar suas peças.`);
+                    return;
+                }
+                if (envieiConfigOnline) {
+                    setMensagem('Aguarde o outro jogador terminar a configuração.');
                     return;
                 }
             }
@@ -556,18 +578,18 @@ function App() {
                     return;
                 }
 
-                moverPecaNoTabuleiro(pecaSelecionadaNoTabuleiro, posicao, jogadorAtual, tabuleiro, setTabuleiro);
+                moverPecaNoTabuleiro(
+                    pecaSelecionadaNoTabuleiro,
+                    posicao,
+                    jogadorConfig,
+                    tabuleiro,
+                    setTabuleiro
+                );
                 setPecaSelecionadaNoTabuleiro(null);
                 return;
             }
 
-            if (pecaNaPosicao && pecaNaPosicao.jogador === jogadorAtual) {
-                // MODO ONLINE: Só posso selecionar minhas peças
-                if (modoJogo === 'online' && estadoOnline.minhaCor && pecaNaPosicao.jogador !== estadoOnline.minhaCor) {
-                    setMensagem('Você não pode mover peças do oponente!');
-                    return;
-                }
-
+            if (pecaNaPosicao && pecaNaPosicao.jogador === jogadorConfig) {
                 setPecaSelecionadaNoTabuleiro(posicao);
                 return;
             }
@@ -577,7 +599,7 @@ function App() {
                     posicao,
                     pecaSelecionadaConfig,
                     draggedPiece,
-                    jogadorAtual,
+                    jogadorConfig,
                     tabuleiro,
                     pecasDisponiveis,
                     setTabuleiro,
@@ -590,23 +612,6 @@ function App() {
                     ghostElement,
                     setGhostElement
                 );
-
-                // SINCRONIZAR TABULEIRO NO MODO ONLINE
-                if (modoJogo === 'online' && estadoOnline.sala) {
-                    const sincronizar = async () => {
-                        try {
-                            const tabuleiroAtual = { ...tabuleiro };
-                            tabuleiroAtual[posicao] = {
-                                numero: pecaSelecionadaConfig,
-                                jogador: jogadorAtual
-                            };
-                            await atualizarTabuleiroOnline(estadoOnline.sala, tabuleiroAtual);
-                        } catch (error) {
-                            console.error('Erro ao sincronizar tabuleiro:', error);
-                        }
-                    };
-                    sincronizar();
-                }
 
                 return;
             }
@@ -832,10 +837,11 @@ function App() {
         setFaseJogo('configuracao');
         setTabuleiro({});
         setPecasDisponiveis({
-            Vermelho: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 },
-            Azul: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 }
+            Vermelho: { ...PECAS_INICIAIS_JOGADOR },
+            Azul: { ...PECAS_INICIAIS_JOGADOR }
         });
         setPecaSelecionadaConfig(null);
+        setEnvieiConfigOnline(false);
     };
 
     const handleEntrarNaSala = async () => {
@@ -854,10 +860,11 @@ function App() {
         if (!ok) return;
         setTabuleiro({});
         setPecasDisponiveis({
-            Vermelho: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 },
-            Azul: { 10: 1, 9: 1, 8: 2, 7: 3, 6: 4, 5: 4, 4: 4, 3: 5, 2: 8, 1: 1, 'bomba': 6, 'bandeira': 1 }
+            Vermelho: { ...PECAS_INICIAIS_JOGADOR },
+            Azul: { ...PECAS_INICIAIS_JOGADOR }
         });
         setPecaSelecionadaConfig(null);
+        setEnvieiConfigOnline(false);
     };
 
     // Wrapper para getCellStyle

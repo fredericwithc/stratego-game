@@ -75,6 +75,27 @@ export const desserializarTabuleiro = (tabuleiroSerializado) => {
     return tabuleiro;
 };
 
+// Durante configuração online: não sobrescrever peças locais com updates parciais do servidor
+export const mesclarTabuleiroConfigOnline = (tabuleiroLocal, tabuleiroServidor, minhaCor, jogadorAtualSala) => {
+    const doServidor = desserializarTabuleiro(tabuleiroServidor || {});
+
+    if (!minhaCor) {
+        return doServidor;
+    }
+
+    if (jogadorAtualSala === minhaCor) {
+        const merged = { ...tabuleiroLocal };
+        Object.entries(doServidor).forEach(([pos, peca]) => {
+            if (peca?.jogador !== minhaCor) {
+                merged[pos] = peca;
+            }
+        });
+        return merged;
+    }
+
+    return doServidor;
+};
+
 const salvarJogadorId = (sala, jogadorId, cor) => {
     localStorage.setItem(`stratego_sala_${sala}`, JSON.stringify({
         jogadorId,
