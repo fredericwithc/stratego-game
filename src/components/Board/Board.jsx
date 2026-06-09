@@ -2,7 +2,7 @@ import React from 'react';
 import Cell from './Cell';
 import './Board.css';
 
-function Board({ handleCellClick, getCellStyle, getPeca, animandoMovimento }) {
+function Board({ handleCellClick, getCellStyle, getCellClassName, getPeca, animandoMovimento }) {
 
     // Posições de água
     const posicoesAgua = ['E2', 'E3', 'E6', 'E7', 'F2', 'F3', 'F6', 'F7'];
@@ -24,6 +24,7 @@ function Board({ handleCellClick, getCellStyle, getPeca, animandoMovimento }) {
                         posicao={posicao}
                         handleCellClick={handleCellClick}
                         getCellStyle={getCellStyle}
+                        getCellClassName={getCellClassName}
                         getPeca={getPeca}
                         isWater={isWater(posicao)}
                     />

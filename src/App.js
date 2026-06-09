@@ -33,7 +33,7 @@ import {
     PECAS_INICIAIS_JOGADOR
 } from './utils/configUtils';
 import { getCellStyle } from './utils/styleUtils';
-import { getPeca } from './utils/getPieceDisplay';
+import { getPeca, getPieceBorderClass } from './utils/getPieceDisplay';
 import { executarCombate } from './utils/gameLogic';
 
 // Imports da IA
@@ -1113,6 +1113,20 @@ function App() {
         );
     };
 
+    const getCellClassNameWrapper = (posicao) => {
+        return getPieceBorderClass(
+            posicao,
+            tabuleiro,
+            combateAtivo,
+            revealCombate,
+            faseJogo,
+            modoJogo,
+            jogadorAtual,
+            mostrarTrocaTurno,
+            estadoOnline
+        );
+    };
+
     // Wrapper para getPeca
     const getPecaWrapper = (posicao) => {
         return getPeca(
@@ -1314,6 +1328,7 @@ function App() {
                     <Board
                         handleCellClick={handleCellClick}
                         getCellStyle={getCellStyleWrapper}
+                        getCellClassName={getCellClassNameWrapper}
                         getPeca={getPecaWrapper}
                         animandoMovimento={animandoMovimento}
                     />

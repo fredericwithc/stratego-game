@@ -394,28 +394,21 @@ hr {
     filter: brightness(1.2);
 }
 
-/* Borda para peças vermelhas ocultas (com coroa) */
-.cell:has(.piece-back.vermelho) {
+/* Bordas das peças — mesma lógica visual, frente mais fina que o verso */
+.cell.peca-verso-vermelho {
     border: 3px solid #b42a2a !important;
 }
 
-/* Borda para peças azuis ocultas (com coroa) */
-.cell:has(.piece-back.azul) {
+.cell.peca-verso-azul {
     border: 3px solid #2577ad !important;
 }
 
-/* Borda na frente da peça (patentes, ranks, bomba, bandeira)
-   inset box-shadow fica visível sobre a imagem — a borda na .cell sumia no fundo colorido */
-.piece-front.vermelho {
-    box-shadow: inset 0 0 0 2px #b42a2a;
+.cell.peca-frente-vermelho {
+    border: 2px solid #b42a2a !important;
 }
 
-.piece-front.azul {
-    box-shadow: inset 0 0 0 2px #2577ad;
-}
-
-.piece-front {
-    box-sizing: border-box;
+.cell.peca-frente-azul {
+    border: 2px solid #2577ad !important;
 }
 
 .cell .piece-front:not(.piece-layout-2) {
@@ -615,20 +608,20 @@ hr {
         font-size: 10px;
     }
 
-    .cell:has(.piece-back.vermelho) {
+    .cell.peca-verso-vermelho {
         border: 2px solid #b42a2a !important;
     }
 
-    .cell:has(.piece-back.azul) {
+    .cell.peca-verso-azul {
         border: 2px solid #2577ad !important;
     }
 
-    .piece-front.vermelho {
-        box-shadow: inset 0 0 0 1.2px #b42a2a;
+    .cell.peca-frente-vermelho {
+        border: 1.2px solid #b42a2a !important;
     }
 
-    .piece-front.azul {
-        box-shadow: inset 0 0 0 1.2px #2577ad;
+    .cell.peca-frente-azul {
+        border: 1.2px solid #2577ad !important;
     }
 
     /* Bombas e bandeiras menores aqui */
@@ -1105,20 +1098,20 @@ hr {
     }
 
     /* Bordas mais grossas para as peças viradas (com coroa) */
-    .cell:has(.piece-back.vermelho) {
+    .cell.peca-verso-vermelho {
         border: 6px solid #b42a2a !important;
     }
 
-    .cell:has(.piece-back.azul) {
+    .cell.peca-verso-azul {
         border: 6px solid #2577ad !important;
     }
 
-    .piece-front.vermelho {
-        box-shadow: inset 0 0 0 4px #b42a2a;
+    .cell.peca-frente-vermelho {
+        border: 4px solid #b42a2a !important;
     }
 
-    .piece-front.azul {
-        box-shadow: inset 0 0 0 4px #2577ad;
+    .cell.peca-frente-azul {
+        border: 4px solid #2577ad !important;
     }
 
     /* aumenta bombas e bandeiras */
