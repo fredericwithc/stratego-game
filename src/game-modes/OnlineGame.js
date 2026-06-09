@@ -177,11 +177,22 @@ export const resolverCombateOnline = async (salaId, tabuleiro, proximoJogador, o
         payload.estado = opts.estado;
     }
 
-    const { error } = await supabase.from('rooms').update(payload).eq('id', id);
+    let { error } = await supabase.from('rooms').update(payload).eq('id', id);
 
     if (error) {
-        console.error('[ONLINE] Erro ao resolver combate:', error);
-        throw error;
+        console.warn('[ONLINE] Retry resolver combate sem campo combate:', error.message);
+        const fallback = {
+            tabuleiro: payload.tabuleiro,
+            jogador_atual: proximoJogador
+        };
+        if (opts.estado) {
+            fallback.estado = opts.estado;
+        }
+        const retry = await supabase.from('rooms').update(fallback).eq('id', id);
+        if (retry.error) {
+            console.error('[ONLINE] Erro ao resolver combate:', retry.error);
+            throw retry.error;
+        }
     }
 };
 

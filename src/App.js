@@ -186,6 +186,7 @@ function App() {
 
     const combateTimerRef = useRef(null);
     const combateEventoIdRef = useRef(null);
+    const ultimoCombateResolvidoEmRef = useRef(0);
 
     const [faseJogo, setFaseJogo] = useState('configuracao');
     const [pecasDisponiveis, setPecasDisponiveis] = useState({
@@ -301,6 +302,14 @@ function App() {
                 const combateServidor = salaData.combate;
                 const combateAtivoNoServidor =
                     combateServidor?.origem && combateServidor?.destino;
+                const combateObsoleto =
+                    combateAtivoNoServidor &&
+                    (combateServidor.iniciado_em || 0) <= ultimoCombateResolvidoEmRef.current;
+
+                if (combateObsoleto) {
+                    console.log('[ONLINE] Evento de combate obsoleto ignorado');
+                    return;
+                }
 
                 if (combateAtivoNoServidor) {
                     const eventoId = `${combateServidor.origem}-${combateServidor.destino}-${combateServidor.iniciado_em}`;
@@ -329,7 +338,17 @@ function App() {
                             setPecaRevelada(null);
                         }, restante);
                     }
-                } else if (combateEventoIdRef.current) {
+                } else {
+                    if (combateEventoIdRef.current) {
+                        const partes = combateEventoIdRef.current.split('-');
+                        const iniciadoAnterior = Number(partes[partes.length - 1]);
+                        if (!Number.isNaN(iniciadoAnterior)) {
+                            ultimoCombateResolvidoEmRef.current = Math.max(
+                                ultimoCombateResolvidoEmRef.current,
+                                iniciadoAnterior
+                            );
+                        }
+                    }
                     combateEventoIdRef.current = null;
                     if (combateTimerRef.current) {
                         clearTimeout(combateTimerRef.current);
@@ -340,62 +359,65 @@ function App() {
                     setPecaRevelada(null);
                 }
 
-                let tabuleiroAtualizado = null;
+                // Enquanto combate está aberto no servidor, não aplicar tabuleiro/turno antigos
+                if (!combateAtivoNoServidor) {
+                    let tabuleiroAtualizado = null;
 
-                if (faseSala === 'jogando' && salaData.tabuleiro && !combateAtivoNoServidor) {
-                    tabuleiroAtualizado = desserializarTabuleiro(salaData.tabuleiro);
-                    setTabuleiro(tabuleiroAtualizado);
-                } else if (faseSala === 'configuracao') {
-                    setTabuleiro((prevTabuleiro) => {
-                        tabuleiroAtualizado = mesclarTabuleiroConfigOnline(
-                            prevTabuleiro,
-                            salaData.tabuleiro || {},
-                            minhaCor,
-                            salaData.jogadorAtual
-                        );
-                        return tabuleiroAtualizado;
-                    });
-                }
-
-                if (
-                    faseSala === 'configuracao' &&
-                    minhaCor &&
-                    salaData.jogadorAtual === minhaCor &&
-                    tabuleiroAtualizado
-                ) {
-                    setPecasDisponiveis((pd) => ({
-                        ...pd,
-                        [minhaCor]: calcularPecasDisponiveisDoTabuleiro(minhaCor, tabuleiroAtualizado)
-                    }));
-                }
-
-                setFaseJogo((faseAnterior) => {
-                    const novaFase = salaData.faseJogo || faseAnterior;
-                    if (novaFase === 'jogando' && faseAnterior !== 'jogando') {
-                        setJogadorPronto(false);
-                        setEnvieiConfigOnline(false);
-                        setMensagem('Configuração completa! Que comece a batalha!');
+                    if (faseSala === 'jogando' && salaData.tabuleiro) {
+                        tabuleiroAtualizado = desserializarTabuleiro(salaData.tabuleiro);
+                        setTabuleiro(tabuleiroAtualizado);
+                    } else if (faseSala === 'configuracao') {
+                        setTabuleiro((prevTabuleiro) => {
+                            tabuleiroAtualizado = mesclarTabuleiroConfigOnline(
+                                prevTabuleiro,
+                                salaData.tabuleiro || {},
+                                minhaCor,
+                                salaData.jogadorAtual
+                            );
+                            return tabuleiroAtualizado;
+                        });
                     }
-                    return novaFase;
-                });
 
-                if (salaData.jogadorAtual) {
-                    setJogadorAtual((anterior) => {
-                        const proximo = salaData.jogadorAtual;
-                        if (proximo && proximo !== anterior && faseSala === 'jogando') {
-                            if (minhaCor && proximo === minhaCor) {
-                                setMensagem('Sua vez!');
-                                setMostrarTrocaTurno(true);
-                            } else if (minhaCor) {
-                                setMensagem(`Vez do jogador ${proximo}.`);
-                            }
+                    if (
+                        faseSala === 'configuracao' &&
+                        minhaCor &&
+                        salaData.jogadorAtual === minhaCor &&
+                        tabuleiroAtualizado
+                    ) {
+                        setPecasDisponiveis((pd) => ({
+                            ...pd,
+                            [minhaCor]: calcularPecasDisponiveisDoTabuleiro(minhaCor, tabuleiroAtualizado)
+                        }));
+                    }
+
+                    setFaseJogo((faseAnterior) => {
+                        const novaFase = salaData.faseJogo || faseAnterior;
+                        if (novaFase === 'jogando' && faseAnterior !== 'jogando') {
+                            setJogadorPronto(false);
+                            setEnvieiConfigOnline(false);
+                            setMensagem('Configuração completa! Que comece a batalha!');
                         }
-                        return proximo;
+                        return novaFase;
                     });
-                }
 
-                if (salaData.estado === 'finalizado') {
-                    setJogoTerminado(true);
+                    if (salaData.jogadorAtual) {
+                        setJogadorAtual((anterior) => {
+                            const proximo = salaData.jogadorAtual;
+                            if (proximo && proximo !== anterior && faseSala === 'jogando') {
+                                if (minhaCor && proximo === minhaCor) {
+                                    setMensagem('Sua vez!');
+                                    setMostrarTrocaTurno(true);
+                                } else if (minhaCor) {
+                                    setMensagem(`Vez do jogador ${proximo}.`);
+                                }
+                            }
+                            return proximo;
+                        });
+                    }
+
+                    if (salaData.estado === 'finalizado') {
+                        setJogoTerminado(true);
+                    }
                 }
             } catch (e) {
                 console.error('[ONLINE] Erro ao aplicar estado da sala:', e);
@@ -514,6 +536,17 @@ function App() {
         }
 
         if (modoJogo !== 'online' || !estadoOnline.sala) return;
+
+        if (combateEventoIdRef.current) {
+            const partes = combateEventoIdRef.current.split('-');
+            const iniciado = Number(partes[partes.length - 1]);
+            if (!Number.isNaN(iniciado)) {
+                ultimoCombateResolvidoEmRef.current = Math.max(
+                    ultimoCombateResolvidoEmRef.current,
+                    iniciado
+                );
+            }
+        }
 
         resolverCombateOnline(
             estadoOnline.sala,
@@ -864,24 +897,26 @@ function App() {
                             delete novoTabuleiro[celulaSelecionada];
                             setTabuleiro(novoTabuleiro);
 
-                            setTimeout(() => {
-                                const novoJogador = jogadorAtual === "Vermelho" ? "Azul" : "Vermelho";
+                            const novoJogador = jogadorAtual === "Vermelho" ? "Azul" : "Vermelho";
 
-                                if (jogadorAtual === "Vermelho" && modoJogo === 'ia') {
-                                    finalizarMovimentoIA();
-                                }
+                            if (jogadorAtual === "Vermelho" && modoJogo === 'ia') {
+                                finalizarMovimentoIA();
+                            }
 
-                                setJogadorAtual(novoJogador);
+                            setJogadorAtual(novoJogador);
 
-                                if (modoJogo === 'online') {
-                                    sincronizarEstadoOnline(novoTabuleiro, novoJogador);
-                                } else if (modoJogo !== 'ia') {
-                                    setMostrarTrocaTurno(true);
-                                }
+                            if (modoJogo === 'online') {
+                                sincronizarEstadoOnline(novoTabuleiro, novoJogador);
+                            } else {
+                                setTimeout(() => {
+                                    if (modoJogo !== 'ia') {
+                                        setMostrarTrocaTurno(true);
+                                    }
+                                }, 1500);
+                            }
 
-                                setAnimandoMovimento(false);
-                                setDadosAnimacao(null);
-                            }, 1500);
+                            setAnimandoMovimento(false);
+                            setDadosAnimacao(null);
                         }, 500);
                     }
                 }
