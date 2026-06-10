@@ -1,17 +1,18 @@
 
 import { isTerritorioVermelho, isTerritorioAzul } from './boardUtils';
+import { getPieceFrontBorderInline } from './getPieceDisplay';
 
-// FUNÇÃO: Verificar se há peça vermelha na posição 
+// FUNÇÃO: Verificar se há peça vermelha na posição
 export const temPecaVermelha = (posicao, tabuleiro) => {
     return tabuleiro[posicao]?.jogador === "Vermelho";
 };
 
-// FUNÇÃO: Verificar se há peça azul na posição 
+// FUNÇÃO: Verificar se há peça azul na posição
 export const temPecaAzul = (posicao, tabuleiro) => {
     return tabuleiro[posicao]?.jogador === "Azul";
 };
 
-// 🌟 FUNÇÃO: Determinar o estilo da célula (selecionada ou não) 
+// FUNÇÃO: Determinar o estilo da célula (selecionada ou não)
 export const getCellStyle = (
     posicao,
     celulaSelecionada,
@@ -23,7 +24,11 @@ export const getCellStyle = (
     movimentosValidos,
     dadosAnimacao,
     ultimoMovimento,
-    revealCombate = { origem: null, destino: null }
+    revealCombate = { origem: null, destino: null },
+    modoJogo = null,
+    jogadorAtual = null,
+    mostrarTrocaTurno = false,
+    estadoOnline = null
 ) => {
     const baseSelecionada = (celulaSelecionada === posicao)
         ? {
@@ -31,6 +36,31 @@ export const getCellStyle = (
             outlineOffset: '-3px'
         }
         : {};
+
+    const pieceContext = {
+        posicao,
+        tabuleiro,
+        combateAtivo,
+        revealCombate,
+        faseJogo,
+        modoJogo,
+        jogadorAtual,
+        mostrarTrocaTurno,
+        estadoOnline
+    };
+
+    const comBordaFrente = (estilo) => {
+        if (!tabuleiro[posicao]) return estilo;
+        const borda = getPieceFrontBorderInline(pieceContext);
+        if (!borda.border) return estilo;
+
+        const sombras = [borda.boxShadow, estilo.boxShadow].filter(Boolean).join(', ');
+        return {
+            ...estilo,
+            border: borda.border,
+            ...(sombras ? { boxShadow: sombras } : {})
+        };
+    };
 
     const celulaEmCombate =
         combateAtivo &&
@@ -63,14 +93,14 @@ export const getCellStyle = (
             ? 'linear-gradient(135deg, #e74c3c, #c0392b)'
             : 'linear-gradient(135deg, #3498db, #2980b9)';
 
-        return {
+        return comBordaFrente({
             ...baseSelecionada,
             background: corFundo,
             outline: '3px solid #DFD0B8',
             outlineOffset: '-3px',
             boxShadow: '0 0 10px #DFD0B8',
             zIndex: 10
-        };
+        });
     }
 
     const vazia = !tabuleiro[posicao];
@@ -98,21 +128,27 @@ export const getCellStyle = (
             corFundo = 'linear-gradient(135deg, #3498db, #2980b9)';
         }
 
-        return {
+        return comBordaFrente({
             ...baseSelecionada,
             background: corFundo,
             outline: '2px solid #DFD0B8',
             outlineOffset: '-2px',
             boxShadow: '0 0 8px rgba(223, 208, 184, 0.6)'
-        };
+        });
     }
 
     // Fora da config - cor baseada na peça, não no território
     if (temPecaVermelha(posicao, tabuleiro)) {
-        return { ...baseSelecionada, background: 'linear-gradient(135deg, #e74c3c, #c0392b)' };
+        return comBordaFrente({
+            ...baseSelecionada,
+            background: 'linear-gradient(135deg, #e74c3c, #c0392b)'
+        });
     }
     if (temPecaAzul(posicao, tabuleiro)) {
-        return { ...baseSelecionada, background: 'linear-gradient(135deg, #3498db, #2980b9)' };
+        return comBordaFrente({
+            ...baseSelecionada,
+            background: 'linear-gradient(135deg, #3498db, #2980b9)'
+        });
     }
 
     // Aplicar classes de animação se estiver animando movimento

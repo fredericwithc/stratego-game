@@ -1109,7 +1109,11 @@ function App() {
             movimentosValidos,
             dadosAnimacao,
             ultimoMovimento,
-            revealCombate
+            revealCombate,
+            modoJogo,
+            jogadorAtual,
+            mostrarTrocaTurno,
+            estadoOnline
         );
     };
 

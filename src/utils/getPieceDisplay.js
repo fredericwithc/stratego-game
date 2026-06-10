@@ -1,5 +1,36 @@
 import { renderPieceWithRank, renderPieceBack } from './renderUtils';
 
+export const BORDA_CORES = {
+    verso: { Vermelho: '#b42a2a', Azul: '#2577ad' },
+    frente: { Vermelho: '#8b1a1a', Azul: '#1a5276' }
+};
+
+const PIECE_FACE_PARAMS = [
+    'posicao',
+    'tabuleiro',
+    'combateAtivo',
+    'revealCombate',
+    'faseJogo',
+    'modoJogo',
+    'jogadorAtual',
+    'mostrarTrocaTurno',
+    'estadoOnline'
+];
+
+const buildPieceFaceParams = (args) => {
+    if (args.length === 1 && args[0]?.tabuleiro) {
+        return args[0];
+    }
+
+    const params = {};
+    PIECE_FACE_PARAMS.forEach((key, index) => {
+        if (args[index] !== undefined) {
+            params[key] = args[index];
+        }
+    });
+    return params;
+};
+
 // Retorna 'frente' | 'verso' | 'oculta' | null
 export const getPieceFaceType = ({
     posicao,
@@ -87,6 +118,22 @@ export const getPieceBorderClass = (
 
     const cor = peca.jogador === 'Vermelho' ? 'vermelho' : 'azul';
     return `peca-${face}-${cor}`;
+};
+
+// Estilo inline de borda para peças reveladas (frente)
+export const getPieceFrontBorderInline = (...args) => {
+    const params = buildPieceFaceParams(args);
+    const peca = params.tabuleiro?.[params.posicao];
+    if (!peca) return {};
+
+    const face = getPieceFaceType(params);
+    if (face !== 'frente') return {};
+
+    const corBorda = BORDA_CORES.frente[peca.jogador];
+    return {
+        border: `2px solid ${corBorda}`,
+        boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.2)'
+    };
 };
 
 // FUNÇÃO: Mostrar qual peça está numa célula

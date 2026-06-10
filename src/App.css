@@ -1,5 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
 
+:root {
+    --borda-verso-vermelho: #b42a2a;
+    --borda-verso-azul: #2577ad;
+    --borda-frente-vermelho: #8b1a1a;
+    --borda-frente-azul: #1a5276;
+    --borda-frente-sombra: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -394,21 +402,23 @@ hr {
     filter: brightness(1.2);
 }
 
-/* Bordas das peças — mesma lógica visual, frente mais fina que o verso */
+/* Bordas das peças — frente mais fina, cores mais escuras para contraste */
 .cell.peca-verso-vermelho {
-    border: 3px solid #b42a2a !important;
+    border: 3px solid var(--borda-verso-vermelho) !important;
 }
 
 .cell.peca-verso-azul {
-    border: 3px solid #2577ad !important;
+    border: 3px solid var(--borda-verso-azul) !important;
 }
 
 .cell.peca-frente-vermelho {
-    border: 2px solid #b42a2a !important;
+    border: 2px solid var(--borda-frente-vermelho) !important;
+    box-shadow: var(--borda-frente-sombra);
 }
 
 .cell.peca-frente-azul {
-    border: 2px solid #2577ad !important;
+    border: 2px solid var(--borda-frente-azul) !important;
+    box-shadow: var(--borda-frente-sombra);
 }
 
 .cell .piece-front:not(.piece-layout-2) {
@@ -609,19 +619,21 @@ hr {
     }
 
     .cell.peca-verso-vermelho {
-        border: 2px solid #b42a2a !important;
+        border: 2px solid var(--borda-verso-vermelho) !important;
     }
 
     .cell.peca-verso-azul {
-        border: 2px solid #2577ad !important;
+        border: 2px solid var(--borda-verso-azul) !important;
     }
 
     .cell.peca-frente-vermelho {
-        border: 1.2px solid #b42a2a !important;
+        border: 1.2px solid var(--borda-frente-vermelho) !important;
+        box-shadow: var(--borda-frente-sombra);
     }
 
     .cell.peca-frente-azul {
-        border: 1.2px solid #2577ad !important;
+        border: 1.2px solid var(--borda-frente-azul) !important;
+        box-shadow: var(--borda-frente-sombra);
     }
 
     /* Bombas e bandeiras menores aqui */
@@ -1050,8 +1062,15 @@ hr {
     }
 }
 
+/* Desktop com mouse: título compacto em janela média (821px+) */
+@media (min-width: 821px) and (pointer: fine) {
+    .game-title {
+        font-size: 1.4em;
+    }
+}
+
 /* Ajustes para iPad Pro */
-@media (min-width: 821px) and (max-width: 1024px) {
+@media (min-width: 821px) and (max-width: 1024px) and (hover: none) and (pointer: coarse) {
 
     /* MENU MODO DE JOGO */
     .game-title {
@@ -1099,19 +1118,21 @@ hr {
 
     /* Bordas mais grossas para as peças viradas (com coroa) */
     .cell.peca-verso-vermelho {
-        border: 6px solid #b42a2a !important;
+        border: 6px solid var(--borda-verso-vermelho) !important;
     }
 
     .cell.peca-verso-azul {
-        border: 6px solid #2577ad !important;
+        border: 6px solid var(--borda-verso-azul) !important;
     }
 
     .cell.peca-frente-vermelho {
-        border: 4px solid #b42a2a !important;
+        border: 4px solid var(--borda-frente-vermelho) !important;
+        box-shadow: var(--borda-frente-sombra);
     }
 
     .cell.peca-frente-azul {
-        border: 4px solid #2577ad !important;
+        border: 4px solid var(--borda-frente-azul) !important;
+        box-shadow: var(--borda-frente-sombra);
     }
 
     /* aumenta bombas e bandeiras */
