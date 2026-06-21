@@ -49,6 +49,25 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 4. Copie `.env.example` para `.env.local` e preencha `REACT_APP_SUPABASE_URL` e `REACT_APP_SUPABASE_ANON_KEY` (Project Settings → API).
 5. Rode `npm start` (local) ou `npm run build` + `npm run deploy` (GitHub Pages). **Importante:** o `.env.local` precisa existir **antes** do `npm run build` — o Create React App grava as variáveis no JS na hora do build. Sem isso, o site publicado abre em branco.
 
+### Keep-alive (plano Free — evitar pausa por inatividade)
+
+No plano **grátis**, o Supabase **pausa** o projeto após **7 dias sem requisições** (REST, Realtime, etc.). O jogo online para até você restaurar manualmente no dashboard.
+
+Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **a cada ~6 dias** (12:00 UTC nos dias 1, 7, 13, 19, 25 e 31).
+
+**Configuração (uma vez):**
+
+1. No GitHub: **Settings → Secrets and variables → Actions → New repository secret**
+2. Crie dois secrets (mesmos valores do `.env.local`):
+   - `SUPABASE_URL` — ex.: `https://xxx.supabase.co` (sem `/rest/v1/`)
+   - `SUPABASE_ANON_KEY` — chave **anon public** (Project Settings → API)
+3. Faça **commit + push** do workflow (se ainda não estiver no GitHub)
+4. Teste: **Actions → Supabase Keep-Alive → Run workflow** — deve ficar verde com `HTTP status: 200`
+
+**Verificação:** em **Actions**, confira execuções periódicas com status verde. Falha vermelha = secrets incorretos ou projeto pausado (restaure no dashboard e rode de novo).
+
+**Segurança:** use apenas a anon key (já pública no build do site). **Nunca** coloque a `service_role` nos secrets.
+
 ## Learn More
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
