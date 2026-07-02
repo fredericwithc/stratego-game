@@ -2,8 +2,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Segunda e quinta às 12:00 UTC — intervalo máximo ~3 dias (abaixo do limite de 7 do Free)
-    - cron: '0 12 * * 1,4'
+    # Todo dia às 12:00 UTC (~09:00 Brasília)
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 jobs:

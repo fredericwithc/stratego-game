@@ -53,7 +53,7 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 
 No plano **grátis**, o Supabase **pausa** o projeto após **7 dias sem requisições** (REST, Realtime, etc.). O jogo online para até você restaurar manualmente no dashboard.
 
-Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **duas vezes por semana** (segunda e quinta, 12:00 UTC — intervalo máximo de ~3 dias).
+Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **uma vez por dia** (12:00 UTC — ~09:00 horário de Brasília).
 
 **Configuração (uma vez):**
 
