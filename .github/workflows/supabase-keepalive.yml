@@ -2,8 +2,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # A cada ~6 dias, às 12:00 UTC (dias 1, 7, 13, 19, 25, 31)
-    - cron: '0 12 1/6 * *'
+    # Segunda e quinta às 12:00 UTC — intervalo máximo ~3 dias (abaixo do limite de 7 do Free)
+    - cron: '0 12 * * 1,4'
   workflow_dispatch:
 
 jobs:
@@ -13,10 +13,16 @@ jobs:
       - name: Ping Supabase REST API
         run: |
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 90 \
+            --retry 3 \
+            --retry-delay 15 \
+            --retry-all-errors \
             "${{ secrets.SUPABASE_URL }}/rest/v1/rooms?select=id&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
           echo "HTTP status: $HTTP_CODE"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Falha: Supabase inacessível ou projeto pausado. Restaure no dashboard e rode de novo."
             exit 1
           fi
+          echo "Ping OK — timer de inatividade do Supabase resetado."

@@ -53,7 +53,7 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 
 No plano **grátis**, o Supabase **pausa** o projeto após **7 dias sem requisições** (REST, Realtime, etc.). O jogo online para até você restaurar manualmente no dashboard.
 
-Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **a cada ~6 dias** (12:00 UTC nos dias 1, 7, 13, 19, 25 e 31).
+Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **duas vezes por semana** (segunda e quinta, 12:00 UTC — intervalo máximo de ~3 dias).
 
 **Configuração (uma vez):**
 
@@ -64,7 +64,14 @@ Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`]
 3. Faça **commit + push** do workflow (se ainda não estiver no GitHub)
 4. Teste: **Actions → Supabase Keep-Alive → Run workflow** — deve ficar verde com `HTTP status: 200`
 
-**Verificação:** em **Actions**, confira execuções periódicas com status verde. Falha vermelha = secrets incorretos ou projeto pausado (restaure no dashboard e rode de novo).
+**Verificação contínua (importante):**
+
+- Um **teste manual** só reseta o timer naquele momento. O projeto **pausa de novo** se não houver pings automáticos por 7 dias.
+- Em **Actions**, confira execuções com evento **Scheduled** (não só Manual), status verde e `HTTP status: 200`.
+- Se aparecer *"This scheduled workflow is disabled"*: o GitHub desligou o agendamento (repo sem commits por 60 dias). Clique em **Enable workflow** ou faça um push no `master`.
+- Execução **vermelha**: projeto pausado ou secrets errados — restaure no [dashboard Supabase](https://supabase.com/dashboard) e rode **Run workflow** de novo.
+
+**Por que o cron antigo (`1/6`) falhava:** entre o dia 31 e o dia 7 do mês seguinte havia lacuna de **7 dias exatos**, no limite do Supabase. O cron atual (seg/qui) evita isso.
 
 **Segurança:** use apenas a anon key (já pública no build do site). **Nunca** coloque a `service_role` nos secrets.
 
