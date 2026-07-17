@@ -2,15 +2,15 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Todo dia às 12:00 UTC (~09:00 Brasília)
-    - cron: '0 12 * * *'
+    # 3x ao dia, a cada 8h: 03:00, 11:00 e 19:00 UTC
+    - cron: '0 3,11,19 * * *'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST API
+      - name: Ping Supabase REST API (leitura)
         run: |
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 90 \
@@ -20,9 +20,30 @@ jobs:
             "${{ secrets.SUPABASE_URL }}/rest/v1/rooms?select=id&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
-          echo "HTTP status: $HTTP_CODE"
+          echo "HTTP status (leitura): $HTTP_CODE"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "Falha: Supabase inacessível ou projeto pausado. Restaure no dashboard e rode de novo."
             exit 1
           fi
-          echo "Ping OK — timer de inatividade do Supabase resetado."
+          echo "Leitura OK."
+
+      - name: Heartbeat Supabase (escrita real)
+        run: |
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 90 \
+            --retry 3 \
+            --retry-delay 15 \
+            --retry-all-errors \
+            -X PATCH "${{ secrets.SUPABASE_URL }}/rest/v1/keepalive?id=eq.1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"last_ping\":\"$NOW\"}")
+          echo "HTTP status (escrita): $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Falha na escrita: verifique se a tabela 'keepalive' existe (rode o schema.sql) e se o projeto está ativo."
+            exit 1
+          fi
+          echo "Heartbeat OK — timer de inatividade do Supabase resetado."

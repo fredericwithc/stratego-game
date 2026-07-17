@@ -53,7 +53,20 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 
 No plano **grátis**, o Supabase **pausa** o projeto após **7 dias sem requisições** (REST, Realtime, etc.). O jogo online para até você restaurar manualmente no dashboard.
 
-Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que faz um ping leve na tabela `rooms` **uma vez por dia** (12:00 UTC — ~09:00 horário de Brasília).
+Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml), que **3x ao dia** (03:00, 11:00 e 19:00 UTC) faz duas coisas: uma **leitura** na tabela `rooms` e uma **escrita real** (heartbeat) na tabela `keepalive`. A escrita é o sinal mais forte de "atividade de banco" para o Supabase não pausar o projeto.
+
+> **Importante:** a escrita exige a tabela `keepalive`. Ela já faz parte de [`supabase/schema.sql`](supabase/schema.sql); se seu projeto foi criado antes, rode este trecho uma vez no **SQL Editor**:
+>
+> ```sql
+> create table if not exists public.keepalive (
+>   id int primary key,
+>   last_ping timestamptz not null default now()
+> );
+> insert into public.keepalive (id) values (1) on conflict (id) do nothing;
+> alter table public.keepalive enable row level security;
+> drop policy if exists "keepalive_all" on public.keepalive;
+> create policy "keepalive_all" on public.keepalive for all using (true) with check (true);
+> ```
 
 **Configuração (uma vez):**
 
@@ -62,16 +75,16 @@ Este repositório inclui o workflow [`.github/workflows/supabase-keepalive.yml`]
    - `SUPABASE_URL` — ex.: `https://xxx.supabase.co` (sem `/rest/v1/`)
    - `SUPABASE_ANON_KEY` — chave **anon public** (Project Settings → API)
 3. Faça **commit + push** do workflow (se ainda não estiver no GitHub)
-4. Teste: **Actions → Supabase Keep-Alive → Run workflow** — deve ficar verde com `HTTP status: 200`
+4. Teste: **Actions → Supabase Keep-Alive → Run workflow** — deve ficar verde, com `HTTP status (leitura): 200` e `HTTP status (escrita): 204`
 
 **Verificação contínua (importante):**
 
 - Um **teste manual** só reseta o timer naquele momento. O projeto **pausa de novo** se não houver pings automáticos por 7 dias.
-- Em **Actions**, confira execuções com evento **Scheduled** (não só Manual), status verde e `HTTP status: 200`.
+- Em **Actions**, confira execuções com evento **Scheduled** (não só Manual), status verde e os dois passos (leitura e escrita) OK.
 - Se aparecer *"This scheduled workflow is disabled"*: o GitHub desligou o agendamento (repo sem commits por 60 dias). Clique em **Enable workflow** ou faça um push no `master`.
-- Execução **vermelha**: projeto pausado ou secrets errados — restaure no [dashboard Supabase](https://supabase.com/dashboard) e rode **Run workflow** de novo.
+- Execução **vermelha**: projeto pausado, secrets errados ou tabela `keepalive` ausente — restaure/ajuste no [dashboard Supabase](https://supabase.com/dashboard) e rode **Run workflow** de novo.
 
-**Por que o cron antigo (`1/6`) falhava:** entre o dia 31 e o dia 7 do mês seguinte havia lacuna de **7 dias exatos**, no limite do Supabase. O cron atual (seg/qui) evita isso.
+**Confira o secret `SUPABASE_URL`:** ele precisa apontar para o **mesmo projeto** que você usa no jogo. Segredos do GitHub não podem ser lidos de volta; na dúvida, reescreva o secret com a URL de **Project Settings → API → Project URL** (sem `/rest/v1/` e sem barra no final). Se apontar para outro projeto, os Actions ficam verdes mas não protegem o projeto certo.
 
 **Segurança:** use apenas a anon key (já pública no build do site). **Nunca** coloque a `service_role` nos secrets.
 

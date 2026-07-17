@@ -31,6 +31,17 @@ create policy "rooms_insert" on public.rooms for insert with check (true);
 create policy "rooms_update" on public.rooms for update using (true);
 create policy "rooms_delete" on public.rooms for delete using (true);
 
+-- Keep-alive: tabela dedicada para o heartbeat do GitHub Actions (evita pausa do plano free).
+-- O workflow faz um UPDATE em last_ping (escrita real = sinal forte de atividade de banco).
+create table if not exists public.keepalive (
+  id int primary key,
+  last_ping timestamptz not null default now()
+);
+insert into public.keepalive (id) values (1) on conflict (id) do nothing;
+alter table public.keepalive enable row level security;
+drop policy if exists "keepalive_all" on public.keepalive;
+create policy "keepalive_all" on public.keepalive for all using (true) with check (true);
+
 -- Virada de turno atômica ao clicar "Pronto"
 create or replace function public.marcar_pronto(
   room_id text,
